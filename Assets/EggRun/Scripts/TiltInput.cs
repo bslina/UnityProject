@@ -58,6 +58,10 @@ public class TiltInput : MonoBehaviour
     void Update()
     {
         EnableSensors();
+
+        // A shake jolts the gravity reading too, so hold the last angle until it is over.
+        if (ShakeDetector.Instance != null && ShakeDetector.Instance.IsShaking) return;
+
         float target = Mathf.DeltaAngle(neutral, ReadRaw());
         if (Mathf.Abs(target) < deadZone) target = 0f;
         if (invert) target = -target;

@@ -50,9 +50,7 @@ public class Egg : MonoBehaviour
         if (wholeVisual != null) wholeVisual.SetActive(false);
         if (brokenVisual != null) brokenVisual.SetActive(true);
 
-#if UNITY_ANDROID && !UNITY_EDITOR
-        Handheld.Vibrate();
-#endif
+        Haptics.Pulse(400);
         Dropped?.Invoke();
     }
 }

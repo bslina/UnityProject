@@ -72,7 +72,8 @@ public class GameManager : MonoBehaviour
     void Update()
     {
         if (showDebug && TiltInput.Instance != null)
-            debugText.text = $"Tilt {TiltInput.Instance.Angle:0.0}°  ({TiltInput.Instance.Source})";
+            debugText.text = $"Tilt {TiltInput.Instance.Angle:0.0}°  ({TiltInput.Instance.Source})"
+                + (ShakeDetector.Instance != null ? $"\nShake {ShakeDetector.Instance.Strength:0.0} g" : "");
 
         if (state != State.Playing) return;
 
