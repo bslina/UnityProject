@@ -64,7 +64,8 @@ public class TiltInput : MonoBehaviour
 
         float target = Mathf.DeltaAngle(neutral, ReadRaw());
         if (Mathf.Abs(target) < deadZone) target = 0f;
-        if (invert) target = -target;
+        if (invert != GameUI.GameSettings.InvertTilt) target = -target; // Inspector and player setting
+        target *= GameUI.GameSettings.TiltSensitivity;
         target = Mathf.Clamp(target, -maxAngle, maxAngle);
 
         Angle = Mathf.Lerp(Angle, target, 1f - Mathf.Exp(-smoothing * Time.deltaTime));

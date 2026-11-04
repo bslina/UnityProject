@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 
 // Lists every sensor Unity can see on this phone, with live values.
 // Creates itself when the game starts (no scene setup needed). Tap "Hide sensors" to close it.
+// Only shown while "Show debug info" is on in the Settings menu.
 public class SensorCheck : MonoBehaviour
 {
     bool visible = true;
@@ -23,7 +24,7 @@ public class SensorCheck : MonoBehaviour
 
     void Update()
     {
-        if (!visible || Time.unscaledTime < nextEnableTime) return;
+        if (!visible || !GameUI.GameSettings.ShowDebug || Time.unscaledTime < nextEnableTime) return;
         nextEnableTime = Time.unscaledTime + 1f;
 
         // Sensors are off by default; turn on every one so its values show up.
@@ -34,7 +35,7 @@ public class SensorCheck : MonoBehaviour
 
     void OnGUI()
     {
-        if (!visible) return;
+        if (!visible || !GameUI.GameSettings.ShowDebug) return;
 
         float scale = Screen.height / 1080f;
         if (textStyle == null)

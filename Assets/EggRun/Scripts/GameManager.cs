@@ -1,8 +1,11 @@
+using GameUI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 // Round flow: Ready -> Playing -> Won or Lost, plus the countdown timer.
+// When the shared Game UI is running (always, unless its prefab is missing), the win/lose
+// screen, pause and retry come from it (MiniGameBridge); the old EndPanel is the fallback.
 public class GameManager : MonoBehaviour
 {
     enum State { Ready, Playing, Won, Lost }
@@ -26,6 +29,10 @@ public class GameManager : MonoBehaviour
     [SerializeField] Button retryButton;
     [SerializeField] Text debugText;
     [SerializeField] bool showDebug = true;
+
+    [Header("Stars on win (seconds left needed)")]
+    [SerializeField] float threeStarTime = 30f;
+    [SerializeField] float twoStarTime = 15f;
 
     State state;
     float timeLeft;
@@ -52,7 +59,7 @@ public class GameManager : MonoBehaviour
         startPanel.SetActive(true);
         endPanel.SetActive(false);
         walkButton.SetActive(false);
-        debugText.gameObject.SetActive(showDebug);
+        debugText.gameObject.SetActive(ShowDebug);
         UpdateTimerText();
     }
 
@@ -71,7 +78,8 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        if (showDebug && TiltInput.Instance != null)
+        debugText.gameObject.SetActive(ShowDebug);
+        if (ShowDebug && TiltInput.Instance != null)
             debugText.text = $"Tilt {TiltInput.Instance.Angle:0.0}°  ({TiltInput.Instance.Source})"
                 + (ShakeDetector.Instance != null ? $"\nShake {ShakeDetector.Instance.Strength:0.0} g" : "");
 
@@ -93,6 +101,21 @@ public class GameManager : MonoBehaviour
 
         player.CanWalk = false;
         walkButton.SetActive(false);
+
+        if (MiniGameBridge.IsAvailable)
+        {
+            if (won)
+            {
+                int stars = timeLeft >= threeStarTime ? 3 : timeLeft >= twoStarTime ? 2 : 1;
+                MiniGameBridge.Win(detail, stars, Mathf.RoundToInt(timeLeft * 10f));
+            }
+            else
+            {
+                MiniGameBridge.Lose(detail);
+            }
+            return;
+        }
+
         endPanel.SetActive(true);
         endTitle.text = won ? "You made it!" : "Oops!";
         endDetail.text = detail;
@@ -102,6 +125,9 @@ public class GameManager : MonoBehaviour
     {
         timerText.text = Mathf.Max(0f, timeLeft).ToString("0.0");
     }
+
+    // The Inspector switch AND the player's "Show debug info" setting must both be on.
+    bool ShowDebug => showDebug && GameSettings.ShowDebug;
 
     void Retry()
     {

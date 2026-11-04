@@ -31,6 +31,7 @@ public static class Haptics
     // milliseconds: pulse length. strength: 1 (faint) to 255 (strongest).
     public static void Pulse(long milliseconds, int strength = 255)
     {
+        if (!GameUI.GameSettings.Vibration) return; // turned off in Settings
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (!initialized) Init();
         if (vibrator == null)
