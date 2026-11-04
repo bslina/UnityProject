@@ -107,7 +107,12 @@ namespace GameUI
             if (InMiniGame) LastGameIndex = CurrentIndex;
             EnsureEventSystem();
 
-            if (overlay != null) overlay.OnSceneChanged(InMiniGame);
+            ApplyOrientation(CurrentGame);
+            if (overlay != null)
+            {
+                overlay.OnSceneChanged(InMiniGame);
+                if (CurrentGame != null && CurrentGame.hidePauseButton) overlay.SetPauseButtonVisible(false);
+            }
             if (audioManager != null) audioManager.PlayMusicFor(CurrentGame);
         }
 
@@ -315,6 +320,14 @@ namespace GameUI
         }
 
         // ---------- Helpers ----------
+
+        // Menus are landscape; each minigame says how it is held (MiniGameRegistry > Orientation).
+        static void ApplyOrientation(MiniGameInfo game)
+        {
+            Screen.orientation = game != null && game.orientation == GameOrientation.Portrait
+                ? ScreenOrientation.Portrait
+                : ScreenOrientation.LandscapeLeft;
+        }
 
         static void EnsureEventSystem()
         {

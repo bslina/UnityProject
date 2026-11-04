@@ -3,15 +3,13 @@ namespace SoundCopy
     public enum GameState
     {
         Menu,
-        Names,
-        MatchSetup,
-        Category,
+        Setup,
         Round,
         Video,
-        RecordingPlayer1,
-        RecordingPlayer2,
+        HandOver,
+        Recording,
         AIAnalysis,
-        AIVerdict,
+        Verdict,
         Results
     }
 }

@@ -14,6 +14,8 @@ namespace SoundCopy.UI
         [SerializeField] private Button rulesButton;
         [SerializeField] private Button launchLabelButton;
         [SerializeField] private Button closeRulesButton;
+        [Tooltip("Back to the big game's level menu; only shown when Sound Copy runs inside the big game.")]
+        [SerializeField] private Button exitButton;
         [SerializeField] private GameObject rulesOverlay;
         [SerializeField] private RectTransform playPulse;
         [SerializeField] private RectTransform launchPulse;
@@ -30,7 +32,11 @@ namespace SoundCopy.UI
         }
 
         private void Awake() => Bind();
-        private void Start() => Bind();
+        private void Start()
+        {
+            Bind();
+            if (exitButton != null) exitButton.gameObject.SetActive(GameUI.MiniGameBridge.IsAvailable);
+        }
         private void OnDestroy() => Unbind();
 
         private void Update()
@@ -54,6 +60,7 @@ namespace SoundCopy.UI
             launchLabelButton?.onClick.AddListener(Play);
             rulesButton?.onClick.AddListener(ShowRules);
             closeRulesButton?.onClick.AddListener(HideRules);
+            exitButton?.onClick.AddListener(Exit);
         }
 
         private void Unbind()
@@ -62,6 +69,7 @@ namespace SoundCopy.UI
             launchLabelButton?.onClick.RemoveListener(Play);
             rulesButton?.onClick.RemoveListener(ShowRules);
             closeRulesButton?.onClick.RemoveListener(HideRules);
+            exitButton?.onClick.RemoveListener(Exit);
         }
 
         public void BuildUI()
@@ -73,6 +81,7 @@ namespace SoundCopy.UI
             BuildPlayerLetters();
             BuildPlayAction();
             BuildFooter();
+            BuildExitButton();
             BuildRulesOverlay();
             ApplyFonts();
         }
@@ -191,6 +200,20 @@ namespace SoundCopy.UI
             offline.rectTransform.offsetMax = Vector2.zero;
         }
 
+        private void BuildExitButton()
+        {
+            GameObject exit = UIFactory.CreateRect("ExitButton", transform, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
+            RectTransform rt = exit.GetComponent<RectTransform>();
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(32f, -34f);
+            rt.sizeDelta = new Vector2(130f, 130f);
+            RoundedRectGraphic graphic = UIFactory.AddRounded(exit, SoundCopyTheme.Cream, 65f, true);
+            UIFactory.AddNativeOutline(exit, SoundCopyTheme.Ink, 4f);
+            exitButton = exit.AddComponent<Button>();
+            exitButton.targetGraphic = graphic;
+            UIFactory.CreateText("Arrow", exit.transform, "<", 64f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
+        }
+
         private void BuildRulesOverlay()
         {
             rulesOverlay = UIFactory.CreateRect("RulesOverlay", transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -221,7 +244,7 @@ namespace SoundCopy.UI
             BuildRuleRow(card.transform, 1, "ÉCOUTE", "Regarde la vidéo et mémorise le rythme.", .535f, SoundCopyTheme.Lime);
             BuildRuleRow(card.transform, 2, "IMITE", "J1 puis J2 reproduisent exactement le son.", .405f, SoundCopyTheme.Coral);
             BuildRuleRow(card.transform, 3, "ANALYSE", "L’IA compare les deux voix au son original.", .275f, SoundCopyTheme.Lime);
-            BuildRuleRow(card.transform, 4, "POINT", "La meilleure imitation gagne la manche.", .145f, SoundCopyTheme.Coral);
+            BuildRuleRow(card.transform, 4, "POINT", "La meilleure gagne. Joker : secoue pour x2 !", .145f, SoundCopyTheme.Coral);
 
             GameObject close = UIFactory.CreateRect("Close", card.transform, new Vector2(.09f, .035f), new Vector2(.91f, .115f), Vector2.zero, Vector2.zero);
             closeRulesButton = UIFactory.CreateButton("CloseButton", close.transform, "C’EST PARTI  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink, 38f, out _);
@@ -260,6 +283,7 @@ namespace SoundCopy.UI
         }
 
         private void Play() => gameManager?.OnPlayButton();
+        private void Exit() => gameManager?.ExitToGame();
         private void ShowRules() { rulesOverlay?.SetActive(true); rulesOverlay?.transform.SetAsLastSibling(); }
         private void HideRules() => rulesOverlay?.SetActive(false);
         private void ClearChildren() { for (int i = transform.childCount - 1; i >= 0; i--) DestroyImmediate(transform.GetChild(i).gameObject); }

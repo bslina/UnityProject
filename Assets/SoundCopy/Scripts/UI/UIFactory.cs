@@ -117,6 +117,15 @@ namespace SoundCopy.UI
             return input;
         }
 
+        public static void ClearChildren(Transform parent)
+        {
+            for (int i = parent.childCount - 1; i >= 0; i--)
+            {
+                GameObject child = parent.GetChild(i).gameObject;
+                if (Application.isPlaying) UnityEngine.Object.Destroy(child); else UnityEngine.Object.DestroyImmediate(child);
+            }
+        }
+
         public static void AddNativeOutline(GameObject target, Color color, float distance = 2f)
         {
             Outline outline = target.AddComponent<Outline>();

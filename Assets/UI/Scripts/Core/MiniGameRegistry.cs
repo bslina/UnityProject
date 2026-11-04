@@ -4,6 +4,8 @@ using UnityEngine;
 
 namespace GameUI
 {
+    public enum GameOrientation { Landscape, Portrait }
+
     [Serializable]
     public class MiniGameInfo
     {
@@ -19,6 +21,10 @@ namespace GameUI
         public AudioClip music;
         [Tooltip("Tick while the minigame isn't integrated yet: shows a 'Coming soon' card.")]
         public bool comingSoon;
+        [Tooltip("How the phone is held while this minigame runs. The menus are always landscape.")]
+        public GameOrientation orientation = GameOrientation.Landscape;
+        [Tooltip("Hide the shared pause button (for minigames that have their own pause menu).")]
+        public bool hidePauseButton;
 
         public bool IsPlayable => !comingSoon && !string.IsNullOrEmpty(sceneName);
     }

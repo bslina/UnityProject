@@ -6,6 +6,7 @@ using UnityEngine.Video;
 
 namespace SoundCopy.UI
 {
+    // Plays the round's meme video (the sound to imitate).
     public sealed class VideoPanel : MonoBehaviour
     {
         [SerializeField] private GameManager gameManager;
@@ -41,9 +42,6 @@ namespace SoundCopy.UI
 
         private void OnDestroy()
         {
-            continueButton?.onClick.RemoveListener(Continue);
-            replayButton?.onClick.RemoveListener(Replay);
-            backButton?.onClick.RemoveListener(Back);
             if (videoPlayer != null)
             {
                 videoPlayer.loopPointReached -= OnVideoFinished;
@@ -52,15 +50,22 @@ namespace SoundCopy.UI
             ReleaseTexture();
         }
 
+        private void OnDisable()
+        {
+            if (videoPlayer != null && videoPlayer.isPlaying) videoPlayer.Stop();
+        }
+
         public void BuildUI()
         {
-            ScreenScaffold.Clear(transform);
-            GameObject shell = ScreenScaffold.Build(transform, "ÉCOUTE", "Le son du round", "Regarde et mémorise chaque détail.");
+            UIFactory.ClearChildren(transform);
+            var page = MobileUI.Page(transform, SoundCopyTheme.DarkPlum);
+            backButton = MobileUI.TopBar(page, "ÉCOUTE LE SON", true, SoundCopyTheme.Cream, out _, out _);
 
-            GameObject frame = UIFactory.CreateRect("VideoFrame", shell.transform, new Vector2(0.075f, 0.34f), new Vector2(0.925f, 0.69f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(frame, SoundCopyTheme.DarkPlum, 38f);
-            UIFactory.AddNativeOutline(frame, SoundCopyTheme.Ink, 3f);
-            GameObject imageObject = UIFactory.CreateRect("VideoImage", frame.transform, new Vector2(0.035f, 0.055f), new Vector2(0.965f, 0.945f), Vector2.zero, Vector2.zero);
+            // Square frame: the video is letterboxed inside, whatever its shape.
+            var frame = MobileUI.Row(page, "VideoFrame", 200f, 968f);
+            MobileUI.Card(frame.gameObject, SoundCopyTheme.Ink, 44f);
+            UIFactory.AddNativeOutline(frame.gameObject, SoundCopyTheme.Cream, 4f);
+            var imageObject = UIFactory.CreateRect("VideoImage", frame, Vector2.zero, Vector2.one, new Vector2(16f, 16f), new Vector2(-16f, -16f));
             videoImage = imageObject.AddComponent<RawImage>();
             videoImage.color = Color.white;
             videoImage.raycastTarget = false;
@@ -71,19 +76,17 @@ namespace SoundCopy.UI
             videoPlayer.renderMode = VideoRenderMode.RenderTexture;
             videoPlayer.aspectRatio = VideoAspectRatio.FitInside;
 
-            statusText = UIFactory.CreateText("Status", shell.transform, "Prêt à lancer le son", 24f, SoundCopyTheme.MutedGray, TextAlignmentOptions.Center, FontStyles.Bold);
-            statusText.rectTransform.anchorMin = new Vector2(0.075f, 0.285f);
-            statusText.rectTransform.anchorMax = new Vector2(0.925f, 0.33f);
-            statusText.rectTransform.offsetMin = Vector2.zero;
-            statusText.rectTransform.offsetMax = Vector2.zero;
+            var status = MobileUI.Row(page, "Status", 1200f, 80f);
+            statusText = MobileUI.Text(status, "Text", "Prêt à lancer le son", 48f, SoundCopyTheme.Lime, TextAlignmentOptions.Center, true);
+            var hint = MobileUI.Row(page, "Hint", 1290f, 110f);
+            var hintText = MobileUI.Text(hint, "Text", "Mémorise bien le rythme et la voix :\nvous allez devoir l'imiter !", 36f, new Color(1f, 1f, 1f, 0.7f), TextAlignmentOptions.Center);
+            hintText.textWrappingMode = TextWrappingModes.Normal;
 
-            GameObject replay = UIFactory.CreateRect("ReplayAction", shell.transform, new Vector2(0.075f, 0.195f), new Vector2(0.43f, 0.26f), Vector2.zero, Vector2.zero);
-            replayButton = UIFactory.CreateButton("ReplayButton", replay.transform, "Revoir", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 28f, out _, false);
-            GameObject next = UIFactory.CreateRect("ContinueAction", shell.transform, new Vector2(0.46f, 0.195f), new Vector2(0.925f, 0.26f), Vector2.zero, Vector2.zero);
-            continueButton = UIFactory.CreateButton("ContinueButton", next.transform, "Commencer les imitations", SoundCopyTheme.Lime, SoundCopyTheme.Ink, 28f, out _);
+            var replay = MobileUI.BottomRow(page, "ReplayAction", MobileUI.BottomMargin + MobileUI.ButtonHeight + 30f, 140f);
+            replayButton = MobileUI.BigButton(replay, "ReplayButton", "REVOIR", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 46f);
+            var next = MobileUI.BottomRow(page, "ContinueAction", MobileUI.BottomMargin, MobileUI.ButtonHeight);
+            continueButton = MobileUI.BigButton(next, "ContinueButton", "C'EST PARTI  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink);
             continueButton.interactable = false;
-            GameObject back = UIFactory.CreateRect("BackAction", shell.transform, new Vector2(0.075f, 0.105f), new Vector2(0.43f, 0.16f), Vector2.zero, Vector2.zero);
-            backButton = UIFactory.CreateButton("BackButton", back.transform, "<  Retour", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 26f, out _, false);
         }
 
         public void PlayForCategory(ChallengeCategory category)
@@ -91,7 +94,7 @@ namespace SoundCopy.UI
             VideoClip clip = ChooseClip(category);
             if (clip == null)
             {
-                statusText.text = "Aucune vidéo assignée à cette catégorie";
+                statusText.text = "Aucune vidéo pour cette catégorie";
                 continueButton.interactable = false;
                 return;
             }
@@ -99,7 +102,7 @@ namespace SoundCopy.UI
             lastClip = clip;
             videoPlayer.clip = clip;
             continueButton.interactable = false;
-            statusText.text = "Écoute en cours…";
+            statusText.text = "Écoute bien…";
             videoPlayer.Play();
         }
 
@@ -119,8 +122,7 @@ namespace SoundCopy.UI
         private void EnsureTexture()
         {
             if (renderTexture != null) return;
-            // A square target works for portrait, landscape and square source clips.
-            // VideoAspectRatio.FitInside adds letterboxing instead of cropping.
+            // A square target works for portrait, landscape and square clips (FitInside letterboxes).
             renderTexture = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32) { name = "SoundCopyVideoRT" };
             renderTexture.Create();
             videoPlayer.targetTexture = renderTexture;
@@ -137,21 +139,21 @@ namespace SoundCopy.UI
 
         private void OnVideoFinished(VideoPlayer source)
         {
-            statusText.text = "À vous de l’imiter !";
+            statusText.text = "À vous de l'imiter !";
             continueButton.interactable = true;
         }
 
         private void OnVideoError(VideoPlayer source, string message)
         {
             statusText.text = "Impossible de lire cette vidéo";
+            continueButton.interactable = lastClip != null; // the AI can still use the reference audio
             Debug.LogError("Sound Copy video error: " + message);
         }
 
         private void Replay()
         {
             if (videoPlayer.clip == null) return;
-            continueButton.interactable = false;
-            statusText.text = "Écoute en cours…";
+            statusText.text = "Écoute bien…";
             videoPlayer.Stop();
             videoPlayer.Play();
         }

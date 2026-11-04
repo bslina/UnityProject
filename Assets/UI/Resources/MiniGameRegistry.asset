@@ -27,6 +27,8 @@ MonoBehaviour:
     icon: {fileID: 0}
     music: {fileID: 0}
     comingSoon: 0
+    orientation: 0
+    hidePauseButton: 0
   - id: sound_copy
     displayName: Sound Copy
     description: 'One sound, two imitations: the AI picks the winner!'
@@ -34,6 +36,8 @@ MonoBehaviour:
     icon: {fileID: 0}
     music: {fileID: 0}
     comingSoon: 0
+    orientation: 1
+    hidePauseButton: 1
   - id: photo_challenge
     displayName: Photo Challenge
     description: Find the object and take its picture!
@@ -41,6 +45,8 @@ MonoBehaviour:
     icon: {fileID: 0}
     music: {fileID: 0}
     comingSoon: 0
+    orientation: 1
+    hidePauseButton: 0
   - id: minigame_4
     displayName: Mini Game 4
     description: Coming soon
@@ -48,3 +54,5 @@ MonoBehaviour:
     icon: {fileID: 0}
     music: {fileID: 0}
     comingSoon: 1
+    orientation: 0
+    hidePauseButton: 0

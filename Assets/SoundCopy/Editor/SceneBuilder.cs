@@ -42,7 +42,6 @@ namespace SoundCopy.Editor
             ModelAsset yamNet = AssetDatabase.LoadAssetAtPath<ModelAsset>("Assets/SoundCopy/AI/Models/YamNet.onnx");
             LoadReferenceAudio(out AudioClip[] referenceClips, out string[] referenceIds);
             aiJudge.Initialize(yamNet, referenceClips, referenceIds);
-            manager.ConfigureAI(aiJudge);
             if (yamNet == null) Debug.LogError("Sound Copy: YamNet.onnx not found in Assets/SoundCopy/AI/Models/.");
 
             GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -66,64 +65,61 @@ namespace SoundCopy.Editor
             TMP_FontAsset bodyFont = EnsureFontAsset("Assets/SoundCopy/Fonts/BarlowCondensed-Bold.ttf", "Assets/SoundCopy/Fonts/BarlowCondensed-UI.asset");
             Sprite homePoster = EnsureSprite("Assets/SoundCopy/Art/Home/battle_poster_background.png");
 
+            // Shake detection for the jokers (accelerometer; press S in the Editor).
+            ShakeDetector shake = managerObject.AddComponent<ShakeDetector>();
+
+            // Every screen uses these fonts (Anton for titles/buttons, Barlow Condensed for text).
+            MobileUI.DisplayFont = displayFont;
+            MobileUI.BodyFont = bodyFont;
+
             GameObject menuObject = CreateFullScreenPanel("MenuPanel", safeArea.transform);
             MenuPanel menu = menuObject.AddComponent<MenuPanel>();
             menu.Initialize(manager, displayFont, bodyFont, homePoster);
             menu.BuildUI();
 
-            GameObject namesObject = CreateFullScreenPanel("NamesPanel", safeArea.transform);
-            NamesPanel names = namesObject.AddComponent<NamesPanel>();
-            names.Initialize(manager);
-            names.BuildUI();
+            SetupPanel setup = CreateFullScreenPanel("SetupPanel", safeArea.transform).AddComponent<SetupPanel>();
+            setup.Initialize(manager);
+            setup.BuildUI();
 
-            GameObject matchSetupObject = CreateFullScreenPanel("MatchSetupPanel", safeArea.transform);
-            MatchSetupPanel matchSetup = matchSetupObject.AddComponent<MatchSetupPanel>();
-            matchSetup.Initialize(manager);
-            matchSetup.BuildUI();
-
-            GameObject categoryObject = CreateFullScreenPanel("CategoryPanel", safeArea.transform);
-            CategoryPanel categories = categoryObject.AddComponent<CategoryPanel>();
-            categories.Initialize(manager);
-            categories.BuildUI();
-
-            GameObject roundObject = CreateFullScreenPanel("RoundPanel", safeArea.transform);
-            RoundPanel round = roundObject.AddComponent<RoundPanel>();
+            RoundPanel round = CreateFullScreenPanel("RoundPanel", safeArea.transform).AddComponent<RoundPanel>();
             round.Initialize(manager);
             round.BuildUI();
 
-            GameObject videoObject = CreateFullScreenPanel("VideoPanel", safeArea.transform);
-            VideoPanel video = videoObject.AddComponent<VideoPanel>();
+            VideoPanel video = CreateFullScreenPanel("VideoPanel", safeArea.transform).AddComponent<VideoPanel>();
             VideoClip[] internationalClips = LoadVideoClips("Assets/SoundCopy/Media/Videos/International");
             VideoClip[] tunisianClips = LoadVideoClips("Assets/SoundCopy/Media/Videos/Tunisian");
             video.Initialize(manager, internationalClips, tunisianClips);
             video.BuildUI();
 
-            GameObject recordingObject = CreateFullScreenPanel("RecordingPanel", safeArea.transform);
-            RecordingPanel recording = recordingObject.AddComponent<RecordingPanel>();
+            HandOverPanel handOver = CreateFullScreenPanel("HandOverPanel", safeArea.transform).AddComponent<HandOverPanel>();
+            handOver.Initialize(manager);
+            handOver.BuildUI();
+
+            RecordingPanel recording = CreateFullScreenPanel("RecordingPanel", safeArea.transform).AddComponent<RecordingPanel>();
             recording.Initialize(manager);
             recording.BuildUI();
 
-            GameObject analysisObject = CreateFullScreenPanel("AIAnalysisPanel", safeArea.transform);
-            AIAnalysisPanel analysis = analysisObject.AddComponent<AIAnalysisPanel>();
+            AIAnalysisPanel analysis = CreateFullScreenPanel("AIAnalysisPanel", safeArea.transform).AddComponent<AIAnalysisPanel>();
             analysis.Initialize(manager);
             analysis.BuildUI();
 
-            GameObject pauseObject = CreateFullScreenPanel("PauseOverlay", safeArea.transform);
-            PauseOverlay pause = pauseObject.AddComponent<PauseOverlay>();
+            VerdictPanel verdict = CreateFullScreenPanel("VerdictPanel", safeArea.transform).AddComponent<VerdictPanel>();
+            verdict.Initialize(manager);
+            verdict.BuildUI();
+
+            ResultsPanel results = CreateFullScreenPanel("ResultsPanel", safeArea.transform).AddComponent<ResultsPanel>();
+            results.Initialize(manager);
+            results.BuildUI();
+
+            PauseOverlay pause = CreateFullScreenPanel("PauseOverlay", safeArea.transform).AddComponent<PauseOverlay>();
             pause.Initialize(manager);
             pause.BuildUI();
             pause.SetAvailable(false);
-            manager.ConfigurePause(pause);
 
-            manager.ConfigurePanels(menuObject, namesObject, matchSetupObject, categoryObject, roundObject, videoObject, recordingObject, analysisObject);
+            manager.Configure(menu, setup, round, video, handOver, recording, analysis, verdict, results, pause, aiJudge, shake);
+            foreach (Component panel in new Component[] { setup, round, video, handOver, recording, analysis, verdict, results })
+                panel.gameObject.SetActive(false);
             menuObject.SetActive(true);
-            namesObject.SetActive(false);
-            matchSetupObject.SetActive(false);
-            categoryObject.SetActive(false);
-            roundObject.SetActive(false);
-            videoObject.SetActive(false);
-            recordingObject.SetActive(false);
-            analysisObject.SetActive(false);
 
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 

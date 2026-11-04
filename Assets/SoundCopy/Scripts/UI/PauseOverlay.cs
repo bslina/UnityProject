@@ -4,6 +4,7 @@ using UnityEngine.UI;
 
 namespace SoundCopy.UI
 {
+    // Pause button (top-right) and pause window: resume, restart, quit the match, back to the big game.
     public sealed class PauseOverlay : MonoBehaviour
     {
         [SerializeField] private GameManager gameManager;
@@ -13,6 +14,7 @@ namespace SoundCopy.UI
         [SerializeField] private Button resumeButton;
         [SerializeField] private Button restartButton;
         [SerializeField] private Button quitButton;
+        [SerializeField] private Button exitButton;
         [SerializeField] private TextMeshProUGUI scoreText;
         private bool paused;
 
@@ -24,79 +26,10 @@ namespace SoundCopy.UI
             resumeButton?.onClick.AddListener(Close);
             restartButton?.onClick.AddListener(Restart);
             quitButton?.onClick.AddListener(Quit);
+            exitButton?.onClick.AddListener(Exit);
         }
 
-        private void OnDestroy()
-        {
-            pauseButton?.onClick.RemoveListener(Open);
-            resumeButton?.onClick.RemoveListener(Close);
-            restartButton?.onClick.RemoveListener(Restart);
-            quitButton?.onClick.RemoveListener(Quit);
-            Time.timeScale = 1f;
-        }
-
-        public void BuildUI()
-        {
-            ScreenScaffold.Clear(transform);
-            pauseButtonObject = UIFactory.CreateRect("PauseButton", transform, new Vector2(0.82f, 0.91f), new Vector2(0.93f, 0.965f), Vector2.zero, Vector2.zero);
-            pauseButton = UIFactory.CreateButton("Button", pauseButtonObject.transform, "II", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 28f, out _, false);
-
-            modal = UIFactory.CreateRect("PauseModal", transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(modal, new Color(0.07f, 0.03f, 0.09f, 0.78f), 0f);
-            GameObject card = UIFactory.CreateRect("Card", modal.transform, new Vector2(0.045f, 0.13f), new Vector2(0.955f, 0.64f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(card, SoundCopyTheme.Cream, 52f);
-            UIFactory.AddNativeOutline(card, SoundCopyTheme.Ink, 5f);
-            Shadow cardShadow = card.AddComponent<Shadow>();
-            cardShadow.effectColor = SoundCopyTheme.Ink;
-            cardShadow.effectDistance = new Vector2(0f, -12f);
-
-            GameObject icon = UIFactory.CreateRect("Icon", card.transform, new Vector2(0.06f, 0.82f), new Vector2(0.17f, 0.95f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(icon, SoundCopyTheme.Lime, 24f);
-            UIFactory.AddNativeOutline(icon, SoundCopyTheme.Ink, 2f);
-            UIFactory.CreateText("Label", icon.transform, "II", 27f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
-            TextMeshProUGUI badge = UIFactory.CreateText("Badge", card.transform, "MATCH EN PAUSE", 16f, SoundCopyTheme.MutedGray, TextAlignmentOptions.Center, FontStyles.Bold);
-            badge.characterSpacing = 4f;
-            badge.rectTransform.anchorMin = new Vector2(0.60f, 0.84f);
-            badge.rectTransform.anchorMax = new Vector2(0.94f, 0.94f);
-            badge.rectTransform.offsetMin = Vector2.zero;
-            badge.rectTransform.offsetMax = Vector2.zero;
-
-            TextMeshProUGUI title = UIFactory.CreateText("Title", card.transform, "PAUSE <color=#FF665F>STRATÉGIQUE.</color>", 52f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
-            title.rectTransform.anchorMin = new Vector2(0.04f, 0.62f);
-            title.rectTransform.anchorMax = new Vector2(0.96f, 0.80f);
-            title.rectTransform.offsetMin = Vector2.zero;
-            title.rectTransform.offsetMax = Vector2.zero;
-            TextMeshProUGUI sub = UIFactory.CreateText("Subtitle", card.transform, "Le micro est coupé.\nLes scores restent au frais.", 22f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Normal);
-            sub.rectTransform.anchorMin = new Vector2(0.06f, 0.50f);
-            sub.rectTransform.anchorMax = new Vector2(0.92f, 0.61f);
-            sub.rectTransform.offsetMin = Vector2.zero;
-            sub.rectTransform.offsetMax = Vector2.zero;
-
-            GameObject score = UIFactory.CreateRect("Score", card.transform, new Vector2(0.06f, 0.36f), new Vector2(0.94f, 0.49f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(score, new Color(0.97f, 0.95f, 0.91f), 24f);
-            UIFactory.AddNativeOutline(score, new Color(0.6f, 0.57f, 0.55f, 0.4f), 2f);
-            GameObject j1 = UIFactory.CreateRect("J1", score.transform, new Vector2(0.015f, 0.12f), new Vector2(0.13f, 0.88f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(j1, SoundCopyTheme.Lime, 50f);
-            UIFactory.AddNativeOutline(j1, SoundCopyTheme.Ink, 2f);
-            UIFactory.CreateText("Label", j1.transform, "J1", 21f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
-            GameObject j2 = UIFactory.CreateRect("J2", score.transform, new Vector2(0.87f, 0.12f), new Vector2(0.985f, 0.88f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(j2, SoundCopyTheme.Coral, 50f);
-            UIFactory.AddNativeOutline(j2, SoundCopyTheme.Ink, 2f);
-            UIFactory.CreateText("Label", j2.transform, "J2", 21f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
-            scoreText = UIFactory.CreateText("Text", score.transform, "Joueur 1   0     —     0   Joueur 2", 22f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
-            scoreText.rectTransform.anchorMin = new Vector2(0.13f, 0f);
-            scoreText.rectTransform.anchorMax = new Vector2(0.87f, 1f);
-            scoreText.rectTransform.offsetMin = Vector2.zero;
-            scoreText.rectTransform.offsetMax = Vector2.zero;
-
-            GameObject resume = UIFactory.CreateRect("Resume", card.transform, new Vector2(0.06f, 0.22f), new Vector2(0.94f, 0.34f), Vector2.zero, Vector2.zero);
-            resumeButton = UIFactory.CreateButton("Button", resume.transform, ">  REPRENDRE LE MATCH", SoundCopyTheme.Lime, SoundCopyTheme.Ink, 27f, out _);
-            GameObject restart = UIFactory.CreateRect("Restart", card.transform, new Vector2(0.06f, 0.07f), new Vector2(0.48f, 0.18f), Vector2.zero, Vector2.zero);
-            restartButton = UIFactory.CreateButton("Button", restart.transform, "RECOMMENCER", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 21f, out _, false);
-            GameObject quit = UIFactory.CreateRect("Quit", card.transform, new Vector2(0.52f, 0.07f), new Vector2(0.94f, 0.18f), Vector2.zero, Vector2.zero);
-            quitButton = UIFactory.CreateButton("Button", quit.transform, "QUITTER", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 21f, out _, false);
-            modal.SetActive(false);
-        }
+        private void OnDestroy() => Time.timeScale = 1f;
 
         public void SetAvailable(bool available)
         {
@@ -108,7 +41,8 @@ namespace SoundCopy.UI
         {
             if (modal == null || gameManager == null) return;
             paused = true;
-            scoreText.text = gameManager.Player1Name + "   " + gameManager.Player1Score + "     —     " + gameManager.Player2Score + "   " + gameManager.Player2Name;
+            scoreText.text = $"{gameManager.Player1Name}  {gameManager.Player1Score} – {gameManager.Player2Score}  {gameManager.Player2Name}";
+            if (exitButton != null) exitButton.gameObject.SetActive(gameManager.InsideBigGame);
             modal.SetActive(true);
             modal.transform.SetAsLastSibling();
             pauseButtonObject.SetActive(false);
@@ -140,6 +74,60 @@ namespace SoundCopy.UI
             Time.timeScale = 1f;
             modal.SetActive(false);
             gameManager.QuitCurrentMatch();
+        }
+
+        private void Exit()
+        {
+            paused = false;
+            Time.timeScale = 1f;
+            modal.SetActive(false);
+            gameManager.ExitToGame();
+        }
+
+        // ---------------------------------------------------------------- build (scene builder)
+
+        public void BuildUI()
+        {
+            UIFactory.ClearChildren(transform);
+
+            // Pause button, in the top bar's right corner (screens leave that spot free).
+            pauseButtonObject = UIFactory.CreateRect("PauseButton", transform, new Vector2(1f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
+            var pbRt = (RectTransform)pauseButtonObject.transform;
+            pbRt.pivot = new Vector2(1f, 1f);
+            pbRt.anchoredPosition = new Vector2(-32f, -34f);
+            pbRt.sizeDelta = new Vector2(130f, 130f);
+            var pbGraphic = UIFactory.AddRounded(pauseButtonObject, SoundCopyTheme.Cream, 65f, true);
+            UIFactory.AddNativeOutline(pauseButtonObject, SoundCopyTheme.Ink, 4f);
+            pauseButton = pauseButtonObject.AddComponent<Button>();
+            pauseButton.targetGraphic = pbGraphic;
+            for (int i = 0; i < 2; i++)
+            {
+                var bar = UIFactory.CreateRect("Bar" + i, pauseButtonObject.transform, new Vector2(i == 0 ? 0.33f : 0.55f, 0.3f), new Vector2(i == 0 ? 0.45f : 0.67f, 0.7f), Vector2.zero, Vector2.zero);
+                UIFactory.AddRounded(bar, SoundCopyTheme.Ink, 6f);
+            }
+
+            modal = UIFactory.CreateRect("PauseModal", transform, Vector2.zero, Vector2.one, new Vector2(-200f, -200f), new Vector2(200f, 200f));
+            UIFactory.AddRounded(modal, new Color(0.04f, 0.02f, 0.06f, 0.85f), 0f, true);
+            var content = UIFactory.CreateRect("Content", modal.transform, Vector2.zero, Vector2.one, new Vector2(200f, 200f), new Vector2(-200f, -200f));
+
+            var card = MobileUI.Fill(content.transform, "Card", 380f, 300f, 48f);
+            MobileUI.Card(card.gameObject, SoundCopyTheme.Cream, 56f);
+            var title = MobileUI.Row(card, "Title", 60f, 130f);
+            MobileUI.Text(title, "Text", "PAUSE", 120f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
+            var sub = MobileUI.Row(card, "Subtitle", 200f, 60f);
+            MobileUI.Text(sub, "Text", "Le micro est coupé, les scores sont gardés.", 36f, SoundCopyTheme.MutedGray, TextAlignmentOptions.Center);
+            var score = MobileUI.Row(card, "Score", 290f, 110f);
+            MobileUI.Card(score.gameObject, new Color(0.95f, 0.92f, 0.86f), 30f, false);
+            scoreText = MobileUI.Text(score, "Text", "J1  0 – 0  J2", 52f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
+            scoreText.enableAutoSizing = true;
+            scoreText.fontSizeMin = 34f;
+            scoreText.fontSizeMax = 52f;
+
+            resumeButton = MobileUI.BigButton(MobileUI.Row(card, "Resume", 450f, 170f), "ResumeButton", "REPRENDRE  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink);
+            restartButton = MobileUI.BigButton(MobileUI.Row(card, "Restart", 660f, 140f), "RestartButton", "RECOMMENCER LE MATCH", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 44f);
+            quitButton = MobileUI.BigButton(MobileUI.Row(card, "Quit", 840f, 140f), "QuitButton", "QUITTER LE MATCH", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 44f);
+            exitButton = MobileUI.BigButton(MobileUI.Row(card, "Exit", 1020f, 140f), "ExitButton", "MENU DES JEUX", SoundCopyTheme.Ink, SoundCopyTheme.Cream, 44f);
+            modal.SetActive(false);
         }
     }
 }
