@@ -13,7 +13,8 @@ namespace GameUI
         [SerializeField] Text descriptionText;
         [Tooltip("Shows the minigame's icon from the registry; the number is shown when there is none.")]
         [SerializeField] Image icon;
-        [SerializeField] ThemedImage[] stars;
+        [SerializeField] Image[] stars;
+        [SerializeField] StarStyle starStyle = new StarStyle();
         [SerializeField] GameObject starsRow;
         [SerializeField] GameObject lockedOverlay;
         [SerializeField] GameObject comingSoonOverlay;
@@ -37,7 +38,7 @@ namespace GameUI
 
             if (starsRow != null) starsRow.SetActive(playable && unlocked);
             for (int i = 0; i < stars.Length; i++)
-                if (stars[i] != null) stars[i].SetRole(i < starCount ? ImageRole.StarFull : ImageRole.StarEmpty);
+                starStyle.Apply(stars[i], i < starCount);
 
             if (comingSoonOverlay != null) comingSoonOverlay.SetActive(!playable);
             if (lockedOverlay != null) lockedOverlay.SetActive(playable && !unlocked);

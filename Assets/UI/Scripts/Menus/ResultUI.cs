@@ -3,15 +3,19 @@ using UnityEngine.UI;
 
 namespace GameUI
 {
-    // Win / lose popup shown at the end of every minigame.
+    // WinMenu and LoseMenu scenes. Reads what the last minigame reported (GameFlow.LastResult).
+    // Every slot is optional: the LoseMenu scene simply has no stars, score or Next button.
     public class ResultUI : UIPanel
     {
-        [SerializeField] ThemedImage headerIcon;
-        [SerializeField] Text titleText;
+        [Tooltip("Ticked in the WinMenu scene, unticked in the LoseMenu scene (picks the win/lose sound).")]
+        [SerializeField] bool isWinScreen = true;
+
         [SerializeField] Text detailText;
         [SerializeField] Text scoreText;
-        [SerializeField] GameObject starsRow;
-        [SerializeField] ThemedImage[] stars;
+        [Tooltip("Shows which minigame was just played.")]
+        [SerializeField] Text gameNameText;
+        [SerializeField] Image[] stars;
+        [SerializeField] StarStyle starStyle = new StarStyle();
 
         [Header("Buttons")]
         [SerializeField] Button nextButton;
@@ -20,46 +24,47 @@ namespace GameUI
         [SerializeField] Button mainMenuButton;
 
         [Header("Texts")]
-        [SerializeField] string winTitle = "You made it!";
-        [SerializeField] string loseTitle = "Oops!";
         [SerializeField] string lastGameNextLabel = "Finish";
-
-        Text nextLabel;
-        string nextLabelDefault;
 
         protected override void Awake()
         {
             base.Awake();
-            nextButton.onClick.AddListener(() => GameFlow.Instance.NextGame());
-            retryButton.onClick.AddListener(() => GameFlow.Instance.Restart());
-            levelsButton.onClick.AddListener(() => GameFlow.Instance.LoadLevelMenu());
-            mainMenuButton.onClick.AddListener(() => GameFlow.Instance.LoadMainMenu());
-            nextLabel = nextButton.GetComponentInChildren<Text>(true);
-            if (nextLabel != null) nextLabelDefault = nextLabel.text;
+            if (nextButton != null) nextButton.onClick.AddListener(() => GameFlow.Instance.NextGame());
+            if (retryButton != null) retryButton.onClick.AddListener(() => GameFlow.Instance.Restart());
+            if (levelsButton != null) levelsButton.onClick.AddListener(() => GameFlow.Instance.LoadLevelMenu());
+            if (mainMenuButton != null) mainMenuButton.onClick.AddListener(() => GameFlow.Instance.LoadMainMenu());
         }
 
-        public void Show(bool won, string detail, int starCount, int score, bool newBest, bool hasNext)
+        void Start()
         {
-            gameObject.SetActive(true); // runs Awake the first time
+            var flow = GameFlow.Instance;
+            var result = flow != null ? flow.LastResult : null;
 
-            if (headerIcon != null) headerIcon.SetRole(won ? ImageRole.WinIcon : ImageRole.LoseIcon);
-            if (titleText != null) titleText.text = won ? winTitle : loseTitle;
-            if (detailText != null) detailText.text = detail;
-
-            if (scoreText != null)
+            // Opened directly in the Editor (no game played yet): keep the texts typed in the scene.
+            if (result != null)
             {
-                scoreText.gameObject.SetActive(won && score > 0);
-                scoreText.text = newBest ? $"Score {score}  (new best!)" : $"Score {score}";
+                if (detailText != null) detailText.text = result.Detail;
+
+                if (scoreText != null)
+                {
+                    scoreText.gameObject.SetActive(result.Score > 0);
+                    scoreText.text = result.NewBest ? $"Score {result.Score}  (new best!)" : $"Score {result.Score}";
+                }
+
+                for (int i = 0; i < stars.Length; i++)
+                    starStyle.Apply(stars[i], i < result.Stars);
+
+                var game = flow.Registry != null ? flow.Registry.Get(result.GameIndex) : null;
+                if (gameNameText != null) gameNameText.text = game != null ? game.displayName : "";
             }
 
-            if (starsRow != null) starsRow.SetActive(won);
-            for (int i = 0; i < stars.Length; i++)
-                if (stars[i] != null) stars[i].SetRole(i < starCount ? ImageRole.StarFull : ImageRole.StarEmpty);
+            if (nextButton != null && flow != null && !flow.HasNextGame)
+            {
+                var label = nextButton.GetComponentInChildren<Text>(true);
+                if (label != null) label.text = lastGameNextLabel;
+            }
 
-            // Winning shows Next (or Finish on the last game); losing hides it so Retry stands out.
-            nextButton.gameObject.SetActive(won);
-            if (nextLabel != null) nextLabel.text = hasNext ? nextLabelDefault : lastGameNextLabel;
-
+            if (flow != null && flow.Audio != null) flow.Audio.PlayResult(isWinScreen);
             Show();
         }
     }

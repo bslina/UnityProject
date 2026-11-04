@@ -36919,10 +36919,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpoonController
   walker: {fileID: 481854357}
   handOffset: {x: 1.1, y: 1.25, z: 0}
-  wobbleAngle: 14
-  swayAngle: 7
-  swaySpeed: 0.9
-  bobHeight: 0.05
+  wobbleAngle: 18
+  swayAngle: 10
+  swaySpeed: 1.1
+  bobHeight: 0.08
   shakeJiggle: 3
   maxTurnSpeed: 360
 --- !u!54 &2146083487

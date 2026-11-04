@@ -3,8 +3,8 @@ using UnityEngine.UI;
 
 namespace GameUI
 {
-    // Settings popup, shared by the main menu and the pause menu.
-    // Every control is optional: delete a row from the prefab and leave its slot empty.
+    // SettingsMenu scene: opened on top of the main menu, the level menu or the pause menu.
+    // Every control is optional: delete a row from the scene and leave its slot empty.
     public class SettingsUI : UIPanel
     {
         [SerializeField] Slider musicSlider;
@@ -12,6 +12,7 @@ namespace GameUI
         [SerializeField] Toggle vibrationToggle;
         [SerializeField] Toggle invertTiltToggle;
         [SerializeField] Slider tiltSensitivitySlider;
+        [SerializeField] Toggle sunEventsToggle;
         [SerializeField] Toggle debugToggle;
         [SerializeField] Button resetProgressButton;
         [SerializeField] Text resetProgressLabel;
@@ -35,12 +36,15 @@ namespace GameUI
                 tiltSensitivitySlider.maxValue = 1.5f;
                 tiltSensitivitySlider.onValueChanged.AddListener(v => GameSettings.TiltSensitivity = v);
             }
+            if (sunEventsToggle != null) sunEventsToggle.onValueChanged.AddListener(v => GameSettings.SunEvents = v);
             if (debugToggle != null) debugToggle.onValueChanged.AddListener(v => GameSettings.ShowDebug = v);
             if (resetProgressButton != null) resetProgressButton.onClick.AddListener(OnResetPressed);
-            if (closeButton != null) closeButton.onClick.AddListener(Hide);
+            if (closeButton != null) closeButton.onClick.AddListener(() => GameFlow.Instance.CloseSettings());
             if (resetProgressLabel != null) resetLabel = resetProgressLabel.text;
             if (versionText != null) versionText.text = "v" + Application.version;
         }
+
+        void Start() => Show();
 
         public override void Show()
         {
@@ -50,6 +54,7 @@ namespace GameUI
             if (vibrationToggle != null) vibrationToggle.SetIsOnWithoutNotify(GameSettings.Vibration);
             if (invertTiltToggle != null) invertTiltToggle.SetIsOnWithoutNotify(GameSettings.InvertTilt);
             if (tiltSensitivitySlider != null) tiltSensitivitySlider.SetValueWithoutNotify(GameSettings.TiltSensitivity);
+            if (sunEventsToggle != null) sunEventsToggle.SetIsOnWithoutNotify(GameSettings.SunEvents);
             if (debugToggle != null) debugToggle.SetIsOnWithoutNotify(GameSettings.ShowDebug);
             DisarmReset();
             base.Show();

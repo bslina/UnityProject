@@ -43,6 +43,13 @@ namespace GameUI
             set => SetFloat("tiltSensitivity", Mathf.Clamp(value, 0.5f, 1.5f));
         }
 
+        // Egg Run: the sun comes out and must be blocked by covering the phone's light sensor.
+        public static bool SunEvents
+        {
+            get => PlayerPrefs.GetInt(Prefix + "sunEvents", 1) == 1;
+            set => SetInt("sunEvents", value ? 1 : 0);
+        }
+
         // Shows the developer readouts (EggRun debug text, sensor panel).
         public static bool ShowDebug
         {

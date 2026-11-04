@@ -12,21 +12,31 @@ using Object = UnityEngine.Object;
 
 namespace GameUI.EditorTools
 {
-    // Builds the whole menu system from code so the hierarchy is clean and identical for everyone:
+    // Builds the whole menu system from code so the hierarchy is clean and identical for everyone.
+    // One scene per menu in Assets/UI/Scenes: MainMenu, LevelSelect, SettingsMenu, PauseMenu, WinMenu, LoseMenu.
     //   Tools > Game UI > Build Menus            creates whatever is missing (safe to run any time)
-    //   Tools > Game UI > Rebuild Menus          overwrites the prefabs + MainMenu scene (loses manual edits!)
-    //   Tools > Game UI > Sync Build Scene List  puts MainMenu first + every registry scene in Build Profiles
+    //   Tools > Game UI > Rebuild Menus          overwrites the prefabs + menu scenes (loses manual edits!)
+    //   Tools > Game UI > Sync Build Scene List  puts the menu scenes + every registry scene in Build Profiles
     public static class GameUIBuilder
     {
         const string Root = "Assets/UI";
         const string ResourcesDir = Root + "/Resources";
         const string PrefabsDir = Root + "/Prefabs";
         const string ScenesDir = Root + "/Scenes";
-        const string ThemePath = ResourcesDir + "/UITheme.asset";
         const string RegistryPath = ResourcesDir + "/MiniGameRegistry.asset";
         const string GameUIPrefabPath = ResourcesDir + "/GameUI.prefab";
         const string LevelButtonPath = PrefabsDir + "/LevelButton.prefab";
-        const string MainMenuScenePath = ScenesDir + "/MainMenu.unity";
+
+        // Scene names (must match the names in MiniGameRegistry.asset).
+        const string MainMenuScene = "MainMenu";
+        const string LevelSelectScene = "LevelSelect";
+        const string SettingsScene = "SettingsMenu";
+        const string PauseScene = "PauseMenu";
+        const string WinScene = "WinMenu";
+        const string LoseScene = "LoseMenu";
+        static readonly string[] MenuScenes = { MainMenuScene, LevelSelectScene, SettingsScene, PauseScene, WinScene, LoseScene };
+
+        static string ScenePath(string sceneName) => ScenesDir + "/" + sceneName + ".unity";
 
         static Font font;
         static Sprite roundedSprite, backgroundSprite, knobSprite, checkSprite;
@@ -40,8 +50,8 @@ namespace GameUI.EditorTools
         static void Rebuild()
         {
             if (!EditorUtility.DisplayDialog("Rebuild menus",
-                    "This overwrites GameUI.prefab, LevelButton.prefab and the MainMenu scene.\n" +
-                    "Manual changes to them will be lost. The Theme and Registry are kept.", "Rebuild", "Cancel"))
+                    "This overwrites GameUI.prefab, LevelButton.prefab and the 6 menu scenes in Assets/UI/Scenes.\n" +
+                    "Manual changes to them will be lost. The Registry is kept.", "Rebuild", "Cancel"))
                 return;
             Build(true);
         }
@@ -56,7 +66,8 @@ namespace GameUI.EditorTools
                 scenes.Add(new EditorBuildSettingsScene(path, true));
             }
 
-            if (File.Exists(MainMenuScenePath)) Add(MainMenuScenePath);
+            foreach (var menu in MenuScenes)
+                if (File.Exists(ScenePath(menu))) Add(ScenePath(menu)); // MainMenu first = the game's start scene
 
             var registry = AssetDatabase.LoadAssetAtPath<MiniGameRegistry>(RegistryPath);
             if (registry != null)
@@ -76,9 +87,6 @@ namespace GameUI.EditorTools
             EditorBuildSettings.scenes = scenes.ToArray();
             Debug.Log("Game UI: Build scene list = " + string.Join(", ", scenes.ConvertAll(s => Path.GetFileNameWithoutExtension(s.path))));
         }
-
-        [MenuItem("Tools/Game UI/Select Theme (skins)", priority = 40)]
-        static void SelectTheme() => Selection.activeObject = AssetDatabase.LoadAssetAtPath<UITheme>(ThemePath);
 
         [MenuItem("Tools/Game UI/Select MiniGame Registry (level list)", priority = 41)]
         static void SelectRegistry() => Selection.activeObject = AssetDatabase.LoadAssetAtPath<MiniGameRegistry>(RegistryPath);
@@ -101,16 +109,29 @@ namespace GameUI.EditorTools
             EnsureFolder(PrefabsDir);
             EnsureFolder(ScenesDir);
 
-            CreateThemeIfMissing();
             CreateRegistryIfMissing();
 
+            // Files made by the first version (every menu inside MainMenu + GameUI.prefab) are replaced.
+            bool oldLayout = FileContains(GameUIPrefabPath, "PauseMenu") || FileContains(ScenePath(MainMenuScene), "LevelSelectPanel");
+            if (oldLayout) Debug.Log("Game UI: replacing the old single-scene menus with one scene per menu.");
+
             if (overwrite || !File.Exists(LevelButtonPath)) BuildLevelButtonPrefab();
-            if (overwrite || !File.Exists(GameUIPrefabPath)) BuildGameUIPrefab();
-            if (overwrite || !File.Exists(MainMenuScenePath)) BuildMainMenuScene();
+            if (overwrite || oldLayout || !File.Exists(GameUIPrefabPath)) BuildGameUIPrefab();
+
+            void BuildScene(string sceneName, Action build)
+            {
+                if (overwrite || !File.Exists(ScenePath(sceneName)) || (oldLayout && sceneName == MainMenuScene)) build();
+            }
+            BuildScene(LevelSelectScene, BuildLevelSelectScene);
+            BuildScene(SettingsScene, BuildSettingsScene);
+            BuildScene(PauseScene, BuildPauseScene);
+            BuildScene(WinScene, () => BuildResultScene(true));
+            BuildScene(LoseScene, () => BuildResultScene(false));
+            BuildScene(MainMenuScene, BuildMainMenuScene); // last, so it is the scene left open
 
             AssetDatabase.SaveAssets();
             SyncBuildScenes();
-            Debug.Log("Game UI: menus built. Skin them in Assets/UI/Resources/UITheme.asset.");
+            Debug.Log("Game UI: menus built. Style each element directly in the scenes and prefabs.");
         }
 
         static void LoadDefaults()
@@ -130,6 +151,8 @@ namespace GameUI.EditorTools
             AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
         }
 
+        static bool FileContains(string path, string text) => File.Exists(path) && File.ReadAllText(path).Contains(text);
+
         static string FindScene(string sceneName)
         {
             foreach (var guid in AssetDatabase.FindAssets("t:Scene " + sceneName))
@@ -141,12 +164,6 @@ namespace GameUI.EditorTools
         }
 
         // ---------------------------------------------------------------- data assets
-
-        static void CreateThemeIfMissing()
-        {
-            if (File.Exists(ThemePath)) return;
-            AssetDatabase.CreateAsset(ScriptableObject.CreateInstance<UITheme>(), ThemePath);
-        }
 
         static void CreateRegistryIfMissing()
         {
@@ -167,8 +184,8 @@ namespace GameUI.EditorTools
                 g.FindPropertyRelative("comingSoon").boolValue = comingSoon;
             }
             AddGame("egg_run", "Egg Run", "Balance the egg on the spoon and reach the flag!", "EggRun", false);
-            AddGame("minigame_2", "Mini Game 2", "Coming soon", "", true);
-            AddGame("minigame_3", "Mini Game 3", "Coming soon", "", true);
+            AddGame("sound_copy", "Sound Copy", "One sound, two imitations: the AI picks the winner!", "Main", false);
+            AddGame("photo_challenge", "Photo Challenge", "Find the object and take its picture!", "MainScene", false);
             AddGame("minigame_4", "Mini Game 4", "Coming soon", "", true);
             so.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -179,7 +196,7 @@ namespace GameUI.EditorTools
         {
             var root = UI("LevelButton", null);
             Size(root, 380, 520);
-            Img(root, ImageRole.Card, roundedSprite);
+            Img(root, Look.Card, roundedSprite);
             var button = root.AddComponent<Button>();
             button.targetGraphic = root.GetComponent<Image>();
             SetDisabledTint(button);
@@ -193,13 +210,13 @@ namespace GameUI.EditorTools
             iconImage.preserveAspect = true;
             iconImage.raycastTarget = false;
 
-            var number = Txt(root.transform, "Number", "1", 170, TextRole.Title);
+            var number = Txt(root.transform, "Number", "1", 170, TextLook.Title);
             Place(number.gameObject, new Vector2(0.5f, 1f), new Vector2(0, -30), new Vector2(300, 240));
 
-            var title = Txt(root.transform, "Name", "Game Name", 46, TextRole.Title);
+            var title = Txt(root.transform, "Name", "Game Name", 46, TextLook.Title);
             Place(title.gameObject, new Vector2(0.5f, 1f), new Vector2(0, -280), new Vector2(350, 70));
 
-            var description = Txt(root.transform, "Description", "Short description", 28, TextRole.Body);
+            var description = Txt(root.transform, "Description", "Short description", 28, TextLook.Body);
             Place(description.gameObject, new Vector2(0.5f, 1f), new Vector2(0, -350), new Vector2(340, 80));
 
             var starsRow = HStack(root.transform, "Stars", 10);
@@ -209,22 +226,22 @@ namespace GameUI.EditorTools
             {
                 var star = UI("Star" + (i + 1), starsRow.transform);
                 Layout(star, 70, 70);
-                stars[i] = Img(star, ImageRole.StarEmpty, knobSprite, false).GetComponent<ThemedImage>();
+                stars[i] = Img(star, Look.StarEmpty, knobSprite, false);
             }
 
             var locked = UI("LockedOverlay", root.transform);
             Stretch(locked);
-            Img(locked, ImageRole.Dim, roundedSprite, false);
-            var lockText = Txt(locked.transform, "LockedLabel", "Locked", 52, TextRole.Light);
+            Img(locked, Look.Dim, roundedSprite, false);
+            var lockText = Txt(locked.transform, "LockedLabel", "Locked", 52, TextLook.Light);
             Place(lockText.gameObject, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(340, 80));
             var lockIcon = UI("LockIcon", locked.transform);
             Place(lockIcon, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(150, 150));
-            IconImage(lockIcon, ImageRole.LockIcon, lockText.gameObject);
+            IconImage(lockIcon, Look.LockIcon, lockText.gameObject);
 
             var soon = UI("ComingSoonOverlay", root.transform);
             Stretch(soon);
-            Img(soon, ImageRole.Dim, roundedSprite, false);
-            var soonText = Txt(soon.transform, "Label", "Coming soon", 52, TextRole.Light);
+            Img(soon, Look.Dim, roundedSprite, false);
+            var soonText = Txt(soon.transform, "Label", "Coming soon", 52, TextLook.Light);
             Place(soonText.gameObject, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(340, 80));
             soon.SetActive(false);
             locked.SetActive(false);
@@ -243,7 +260,7 @@ namespace GameUI.EditorTools
             SavePrefab(root, LevelButtonPath);
         }
 
-        // ---------------------------------------------------------------- GameUI prefab (persistent overlay)
+        // ---------------------------------------------------------------- GameUI prefab (persistent: pause button + fader)
 
         static void BuildGameUIPrefab()
         {
@@ -261,101 +278,17 @@ namespace GameUI.EditorTools
             Set(audio, "musicSource", music);
             Set(audio, "sfxSource", sfx);
 
-            // --- Overlay canvas: pause button + popups
+            // --- Overlay canvas: the pause button shown over minigames
             var canvas = MakeCanvas(root.transform, "OverlayCanvas", 100);
             var overlay = canvas.AddComponent<GameOverlayUI>();
-
             var safe = UI("SafeArea", canvas.transform);
             Stretch(safe);
             safe.AddComponent<SafeArea>();
-            var pause = Btn(safe.transform, "PauseButton", "II", ImageRole.IconButton, new Vector2(130, 130), 60);
+            var pause = Btn(safe.transform, "PauseButton", "II", Look.IconButton, new Vector2(130, 130), 60);
             Place(pause.gameObject, new Vector2(1f, 1f), new Vector2(-30, -30), new Vector2(130, 130));
-            AddIcon(pause, ImageRole.PauseIcon);
-
-            // Pause menu
-            var pauseMenu = Popup<PauseMenuUI>(canvas.transform, "PauseMenu", new Vector2(760, 880), "Paused", out var pauseWindow);
-            var resume = Btn(pauseWindow, "ResumeButton", "Resume", ImageRole.PrimaryButton, new Vector2(560, 120), 54);
-            var restart = Btn(pauseWindow, "RestartButton", "Restart", ImageRole.SecondaryButton, new Vector2(560, 100), 46);
-            var pauseSettings = Btn(pauseWindow, "SettingsButton", "Settings", ImageRole.SecondaryButton, new Vector2(560, 100), 46);
-            var pauseLevels = Btn(pauseWindow, "LevelsButton", "Levels", ImageRole.SecondaryButton, new Vector2(560, 100), 46);
-            var pauseMain = Btn(pauseWindow, "MainMenuButton", "Main Menu", ImageRole.SecondaryButton, new Vector2(560, 100), 46);
-            Set(pauseMenu, "resumeButton", resume);
-            Set(pauseMenu, "restartButton", restart);
-            Set(pauseMenu, "settingsButton", pauseSettings);
-            Set(pauseMenu, "levelsButton", pauseLevels);
-            Set(pauseMenu, "mainMenuButton", pauseMain);
-
-            // Result (win / lose)
-            var result = Popup<ResultUI>(canvas.transform, "ResultPanel", new Vector2(1060, 900), null, out var resultWindow);
-            var header = UI("HeaderIcon", resultWindow);
-            Layout(header, 170, 170);
-            var headerImg = Img(header, ImageRole.WinIcon, knobSprite, false);
-            headerImg.preserveAspect = true;
-            var resultTitle = Txt(resultWindow, "Title", "You made it!", 96, TextRole.Title);
-            Layout(resultTitle.gameObject, 900, 120);
-            var detail = Txt(resultWindow, "Detail", "Details", 50, TextRole.Body);
-            Layout(detail.gameObject, 900, 70);
-            var starsRow = HStack(resultWindow, "Stars", 20);
-            Layout(starsRow, 420, 120);
-            var stars = new Object[3];
-            for (int i = 0; i < 3; i++)
-            {
-                var star = UI("Star" + (i + 1), starsRow.transform);
-                Layout(star, 110, 110);
-                stars[i] = Img(star, ImageRole.StarFull, knobSprite, false).GetComponent<ThemedImage>();
-            }
-            var score = Txt(resultWindow, "Score", "Score 0", 42, TextRole.Body);
-            Layout(score.gameObject, 900, 56);
-            var buttonRow = HStack(resultWindow, "Buttons", 20);
-            Layout(buttonRow, 920, 120);
-            var resMain = Btn(buttonRow.transform, "MainMenuButton", "Menu", ImageRole.SecondaryButton, new Vector2(200, 110), 40);
-            var resLevels = Btn(buttonRow.transform, "LevelsButton", "Levels", ImageRole.SecondaryButton, new Vector2(200, 110), 40);
-            var resRetry = Btn(buttonRow.transform, "RetryButton", "Retry", ImageRole.PrimaryButton, new Vector2(220, 110), 44);
-            var resNext = Btn(buttonRow.transform, "NextButton", "Next", ImageRole.PrimaryButton, new Vector2(220, 110), 44);
-            Set(result, "headerIcon", header.GetComponent<ThemedImage>());
-            Set(result, "titleText", resultTitle);
-            Set(result, "detailText", detail);
-            Set(result, "scoreText", score);
-            Set(result, "starsRow", starsRow);
-            SetArray(result, "stars", stars);
-            Set(result, "nextButton", resNext);
-            Set(result, "retryButton", resRetry);
-            Set(result, "levelsButton", resLevels);
-            Set(result, "mainMenuButton", resMain);
-
-            // Settings (also opened from the main menu)
-            var settings = Popup<SettingsUI>(canvas.transform, "SettingsPanel", new Vector2(1120, 990), "Settings", out var settingsWindow);
-            var musicSlider = SliderRow(settingsWindow, "Music");
-            var sfxSlider = SliderRow(settingsWindow, "Sound effects");
-            var vibration = ToggleRow(settingsWindow, "Vibration");
-            var invert = ToggleRow(settingsWindow, "Invert tilt");
-            var sensitivity = SliderRow(settingsWindow, "Tilt sensitivity");
-            var debug = ToggleRow(settingsWindow, "Show debug info");
-            var settingsButtons = HStack(settingsWindow, "Buttons", 30);
-            Layout(settingsButtons, 960, 110);
-            var reset = Btn(settingsButtons.transform, "ResetProgressButton", "Reset progress", ImageRole.SecondaryButton, new Vector2(440, 100), 40);
-            var close = Btn(settingsButtons.transform, "CloseButton", "Close", ImageRole.PrimaryButton, new Vector2(320, 100), 48);
-            var version = Txt(settingsWindow, "Version", "v1.0", 28, TextRole.Body);
-            Layout(version.gameObject, 960, 36);
-            Set(settings, "musicSlider", musicSlider);
-            Set(settings, "sfxSlider", sfxSlider);
-            Set(settings, "vibrationToggle", vibration);
-            Set(settings, "invertTiltToggle", invert);
-            Set(settings, "tiltSensitivitySlider", sensitivity);
-            Set(settings, "debugToggle", debug);
-            Set(settings, "resetProgressButton", reset);
-            Set(settings, "resetProgressLabel", reset.GetComponentInChildren<Text>());
-            Set(settings, "closeButton", close);
-            Set(settings, "versionText", version);
-
-            Set(overlay, "pauseButton", pause);
-            Set(overlay, "pauseMenu", pauseMenu);
-            Set(overlay, "settings", settings);
-            Set(overlay, "result", result);
-            pauseMenu.gameObject.SetActive(false);
-            result.gameObject.SetActive(false);
-            settings.gameObject.SetActive(false);
+            AddIcon(pause, Look.PauseIcon);
             pause.gameObject.SetActive(false);
+            Set(overlay, "pauseButton", pause);
 
             // --- Fader canvas: black screen between scenes, above everything
             var faderCanvas = MakeCanvas(root.transform, "FaderCanvas", 1000);
@@ -374,66 +307,85 @@ namespace GameUI.EditorTools
             SavePrefab(root, GameUIPrefabPath);
         }
 
-        // ---------------------------------------------------------------- MainMenu scene
+        // ---------------------------------------------------------------- scenes
 
-        static void BuildMainMenuScene()
+        // Full-screen menu scene: camera + EventSystem + canvas with the themed background.
+        static Scene NewMenuScene(string canvasName, out GameObject canvas)
         {
-            var cardPrefab = AssetDatabase.LoadAssetAtPath<LevelButton>(LevelButtonPath);
-            var theme = AssetDatabase.LoadAssetAtPath<UITheme>(ThemePath);
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var cam = new GameObject("Main Camera");
             cam.tag = "MainCamera";
             var camera = cam.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = theme != null ? theme.backgroundColor : Color.gray;
+            camera.backgroundColor = ColorOf(Look.MenuBackground);
             camera.orthographic = true;
             cam.AddComponent<AudioListener>();
 
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
-            var canvas = MakeCanvas(null, "MenuCanvas", 0);
-            var menu = canvas.AddComponent<MainMenuUI>();
-
+            canvas = MakeCanvas(null, canvasName, 0);
             var background = UI("Background", canvas.transform);
             Stretch(background);
-            Img(background, ImageRole.MenuBackground, null, false);
+            Img(background, Look.MenuBackground, null, false);
+            return scene;
+        }
 
-            // --- Main panel
-            var main = UI("MainPanel", canvas.transform);
-            Stretch(main);
-            var mainPanel = main.AddComponent<UIPanel>();
+        // Popup scene opened ON TOP of another scene (pause, settings): just a canvas, no camera
+        // or EventSystem (the scene underneath has them).
+        static Scene NewPopupScene(string canvasName, int sortingOrder, out GameObject canvas)
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            canvas = MakeCanvas(null, canvasName, sortingOrder);
+            return scene;
+        }
 
-            var gameTitle = Txt(main.transform, "GameTitle", "GAME TITLE", 140, TextRole.Title);
-            Place(gameTitle.gameObject, new Vector2(0.5f, 1f), new Vector2(0, -90), new Vector2(1400, 260));
-            var logo = UI("Logo", main.transform);
-            Place(logo, new Vector2(0.5f, 1f), new Vector2(0, -60), new Vector2(1000, 320));
-            var logoImage = IconImage(logo, ImageRole.Logo, gameTitle.gameObject);
-            logoImage.preserveAspect = true;
+        // Layout groups only help to place things while building: they are removed before saving,
+        // so every element can be moved freely by hand afterwards.
+        static void SaveScene(Scene scene, string sceneName)
+        {
+            foreach (var root in scene.GetRootGameObjects()) UILayoutUnlocker.Unlock(root);
+            EditorSceneManager.SaveScene(scene, ScenesDir + "/" + sceneName + ".unity");
+        }
 
-            var buttons = VStack(main.transform, "Buttons", 28);
-            Place(buttons, new Vector2(0.5f, 0.5f), new Vector2(0, -150), new Vector2(600, 560));
-            var play = Btn(buttons.transform, "PlayButton", "PLAY", ImageRole.PrimaryButton, new Vector2(560, 140), 70);
-            var levels = Btn(buttons.transform, "LevelsButton", "Levels", ImageRole.SecondaryButton, new Vector2(520, 110), 50);
-            var settings = Btn(buttons.transform, "SettingsButton", "Settings", ImageRole.SecondaryButton, new Vector2(520, 110), 50);
-            var quit = Btn(buttons.transform, "QuitButton", "Quit", ImageRole.SecondaryButton, new Vector2(520, 110), 50);
+        static void BuildMainMenuScene()
+        {
+            var scene = NewMenuScene("MainMenuCanvas", out var canvas);
+            var menu = canvas.AddComponent<MainMenuUI>();
 
-            // --- Level select panel
-            var levelsGo = UI("LevelSelectPanel", canvas.transform);
-            Stretch(levelsGo);
-            var levelSelect = levelsGo.AddComponent<LevelSelectUI>();
-
-            var levelsTitle = Txt(levelsGo.transform, "Title", "Choose a game", 90, TextRole.Title);
-            Place(levelsTitle.gameObject, new Vector2(0.5f, 1f), new Vector2(0, -50), new Vector2(1200, 130));
-
-            var safe = UI("SafeArea", levelsGo.transform);
+            var safe = UI("SafeArea", canvas.transform);
             Stretch(safe);
             safe.AddComponent<SafeArea>();
-            var back = Btn(safe.transform, "BackButton", "<", ImageRole.IconButton, new Vector2(130, 130), 70);
-            Place(back.gameObject, new Vector2(0f, 1f), new Vector2(30, -30), new Vector2(130, 130));
-            AddIcon(back, ImageRole.BackIcon);
 
-            var scroll = UI("CardScroll", levelsGo.transform);
+            var gameTitle = Txt(safe.transform, "GameTitle", "GAME TITLE", 140, TextLook.Title);
+            Place(gameTitle.gameObject, new Vector2(0.5f, 1f), new Vector2(0, -90), new Vector2(1400, 260));
+            var logo = UI("Logo", safe.transform);
+            Place(logo, new Vector2(0.5f, 1f), new Vector2(0, -60), new Vector2(1000, 320));
+            IconImage(logo, Look.Logo, gameTitle.gameObject).preserveAspect = true;
+
+            var buttons = VStack(safe.transform, "Buttons", 28);
+            Place(buttons, new Vector2(0.5f, 0.5f), new Vector2(0, -150), new Vector2(600, 560));
+            var play = Btn(buttons.transform, "PlayButton", "PLAY", Look.PrimaryButton, new Vector2(560, 140), 70);
+            var settings = Btn(buttons.transform, "SettingsButton", "Settings", Look.SecondaryButton, new Vector2(520, 110), 50);
+            var quit = Btn(buttons.transform, "QuitButton", "Quit", Look.SecondaryButton, new Vector2(520, 110), 50);
+
+            Set(menu, "playButton", play);
+            Set(menu, "settingsButton", settings);
+            Set(menu, "quitButton", quit);
+
+            SaveScene(scene, MainMenuScene);
+        }
+
+        static void BuildLevelSelectScene()
+        {
+            var cardPrefab = AssetDatabase.LoadAssetAtPath<LevelButton>(LevelButtonPath);
+            var scene = NewMenuScene("LevelSelectCanvas", out var canvas);
+            var levelSelect = canvas.AddComponent<LevelSelectUI>();
+
+            var levelsTitle = Txt(canvas.transform, "Title", "Choose a game", 90, TextLook.Title);
+            Place(levelsTitle.gameObject, new Vector2(0.5f, 1f), new Vector2(0, -50), new Vector2(1200, 130));
+
+            var scroll = UI("CardScroll", canvas.transform);
             Stretch(scroll);
             var scrollRt = (RectTransform)scroll.transform;
             scrollRt.offsetMin = new Vector2(60, 80);
@@ -460,36 +412,152 @@ namespace GameUI.EditorTools
             scrollRect.viewport = scrollRt;
             scrollRect.content = (RectTransform)content.transform;
 
+            // Corner buttons last so they draw above the cards.
+            var safe = UI("SafeArea", canvas.transform);
+            Stretch(safe);
+            safe.AddComponent<SafeArea>();
+            var back = Btn(safe.transform, "BackButton", "<", Look.IconButton, new Vector2(130, 130), 70);
+            Place(back.gameObject, new Vector2(0f, 1f), new Vector2(30, -30), new Vector2(130, 130));
+            AddIcon(back, Look.BackIcon);
+            var settings = Btn(safe.transform, "SettingsButton", "Set", Look.IconButton, new Vector2(130, 130), 40);
+            Place(settings.gameObject, new Vector2(1f, 1f), new Vector2(-30, -30), new Vector2(130, 130));
+            AddIcon(settings, Look.SettingsIcon);
+
             Set(levelSelect, "cardPrefab", cardPrefab);
             Set(levelSelect, "cardContainer", content.transform);
             Set(levelSelect, "backButton", back);
-            levelsGo.SetActive(false);
+            Set(levelSelect, "settingsButton", settings);
 
-            Set(menu, "mainPanel", mainPanel);
-            Set(menu, "levelSelect", levelSelect);
-            Set(menu, "playButton", play);
-            Set(menu, "levelsButton", levels);
-            Set(menu, "settingsButton", settings);
-            Set(menu, "quitButton", quit);
+            SaveScene(scene, LevelSelectScene);
+        }
 
-            EditorSceneManager.SaveScene(scene, MainMenuScenePath);
+        static void BuildSettingsScene()
+        {
+            var scene = NewPopupScene("SettingsCanvas", 300, out var canvas);
+            var settings = Popup<SettingsUI>(canvas.transform, "SettingsPanel", new Vector2(1120, 1010), "Settings", true, out var window);
+
+            var musicSlider = SliderRow(window, "Music");
+            var sfxSlider = SliderRow(window, "Sound effects");
+            var vibration = ToggleRow(window, "Vibration");
+            var invert = ToggleRow(window, "Invert tilt");
+            var sensitivity = SliderRow(window, "Tilt sensitivity");
+            var sunEvents = ToggleRow(window, "Sun events (Egg Run)");
+            var debug = ToggleRow(window, "Show debug info");
+            var buttons = HStack(window, "Buttons", 30);
+            Layout(buttons, 960, 110);
+            var reset = Btn(buttons.transform, "ResetProgressButton", "Reset progress", Look.SecondaryButton, new Vector2(440, 100), 40);
+            var close = Btn(buttons.transform, "CloseButton", "Close", Look.PrimaryButton, new Vector2(320, 100), 48);
+            var version = Txt(window, "Version", "v1.0", 28, TextLook.Body);
+            Layout(version.gameObject, 960, 36);
+
+            Set(settings, "musicSlider", musicSlider);
+            Set(settings, "sfxSlider", sfxSlider);
+            Set(settings, "vibrationToggle", vibration);
+            Set(settings, "invertTiltToggle", invert);
+            Set(settings, "tiltSensitivitySlider", sensitivity);
+            Set(settings, "sunEventsToggle", sunEvents);
+            Set(settings, "debugToggle", debug);
+            Set(settings, "resetProgressButton", reset);
+            Set(settings, "resetProgressLabel", reset.GetComponentInChildren<Text>());
+            Set(settings, "closeButton", close);
+            Set(settings, "versionText", version);
+
+            SaveScene(scene, SettingsScene);
+        }
+
+        static void BuildPauseScene()
+        {
+            var scene = NewPopupScene("PauseCanvas", 200, out var canvas);
+            var pauseMenu = Popup<PauseMenuUI>(canvas.transform, "PausePanel", new Vector2(760, 880), "Paused", true, out var window);
+
+            var resume = Btn(window, "ResumeButton", "Resume", Look.PrimaryButton, new Vector2(560, 120), 54);
+            var restart = Btn(window, "RestartButton", "Restart", Look.SecondaryButton, new Vector2(560, 100), 46);
+            var settings = Btn(window, "SettingsButton", "Settings", Look.SecondaryButton, new Vector2(560, 100), 46);
+            var levels = Btn(window, "LevelsButton", "Levels", Look.SecondaryButton, new Vector2(560, 100), 46);
+            var main = Btn(window, "MainMenuButton", "Main Menu", Look.SecondaryButton, new Vector2(560, 100), 46);
+
+            Set(pauseMenu, "resumeButton", resume);
+            Set(pauseMenu, "restartButton", restart);
+            Set(pauseMenu, "settingsButton", settings);
+            Set(pauseMenu, "levelsButton", levels);
+            Set(pauseMenu, "mainMenuButton", main);
+
+            SaveScene(scene, PauseScene);
+        }
+
+        static void BuildResultScene(bool won)
+        {
+            var scene = NewMenuScene(won ? "WinCanvas" : "LoseCanvas", out var canvas);
+            var result = Popup<ResultUI>(canvas.transform, won ? "WinPanel" : "LosePanel",
+                new Vector2(1060, won ? 940 : 760), null, false, out var window);
+            Set(result, "isWinScreen", won);
+
+            var header = UI("HeaderIcon", window);
+            Layout(header, 170, 170);
+            Img(header, won ? Look.WinIcon : Look.LoseIcon, knobSprite, false).preserveAspect = true;
+
+            var gameName = Txt(window, "GameName", "Game Name", 40, TextLook.Body);
+            Layout(gameName.gameObject, 900, 50);
+            var title = Txt(window, "Title", won ? "You made it!" : "Oops!", 96, TextLook.Title);
+            Layout(title.gameObject, 900, 120);
+            var detail = Txt(window, "Detail", won ? "Well done" : "Try again", 50, TextLook.Body);
+            Layout(detail.gameObject, 900, 70);
+
+            Button next = null;
+            if (won)
+            {
+                var starsRow = HStack(window, "Stars", 20);
+                Layout(starsRow, 420, 120);
+                var stars = new Object[3];
+                for (int i = 0; i < 3; i++)
+                {
+                    var star = UI("Star" + (i + 1), starsRow.transform);
+                    Layout(star, 110, 110);
+                    stars[i] = Img(star, Look.StarFull, knobSprite, false);
+                }
+                SetArray(result, "stars", stars);
+
+                var score = Txt(window, "Score", "Score 0", 42, TextLook.Body);
+                Layout(score.gameObject, 900, 56);
+                Set(result, "scoreText", score);
+            }
+
+            var buttonRow = HStack(window, "Buttons", 20);
+            Layout(buttonRow, 920, 120);
+            var main = Btn(buttonRow.transform, "MainMenuButton", "Menu", Look.SecondaryButton, new Vector2(200, 110), 40);
+            var levels = Btn(buttonRow.transform, "LevelsButton", "Levels", Look.SecondaryButton, new Vector2(200, 110), 40);
+            var retry = Btn(buttonRow.transform, "RetryButton", "Retry", won ? Look.SecondaryButton : Look.PrimaryButton, new Vector2(220, 110), 44);
+            if (won) next = Btn(buttonRow.transform, "NextButton", "Next", Look.PrimaryButton, new Vector2(220, 110), 44);
+
+            Set(result, "gameNameText", gameName);
+            Set(result, "detailText", detail);
+            Set(result, "retryButton", retry);
+            Set(result, "levelsButton", levels);
+            Set(result, "mainMenuButton", main);
+            if (next != null) Set(result, "nextButton", next);
+
+            SaveScene(scene, won ? WinScene : LoseScene);
         }
 
         // ---------------------------------------------------------------- composite widgets
 
-        static T Popup<T>(Transform parent, string name, Vector2 size, string title, out Transform window) where T : UIPanel
+        static T Popup<T>(Transform parent, string name, Vector2 size, string title, bool dim, out Transform window) where T : UIPanel
         {
             var root = UI(name, parent);
             Stretch(root);
             var panel = root.AddComponent<T>();
 
-            var dim = UI("Dim", root.transform);
-            Stretch(dim);
-            Img(dim, ImageRole.Dim, null); // blocks taps on what's behind
+            if (dim)
+            {
+                var dimGo = UI("Dim", root.transform);
+                Stretch(dimGo);
+                Img(dimGo, Look.Dim, null); // darkens and blocks taps on the scene underneath
+            }
 
             var win = UI("Window", root.transform);
             Place(win, new Vector2(0.5f, 0.5f), Vector2.zero, size);
-            Img(win, ImageRole.Panel, roundedSprite);
+            Img(win, Look.Panel, roundedSprite);
+            win.AddComponent<FitToScreen>(); // shrinks the window on short/wide screens
             var layout = win.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(60, 60, 50, 50);
             layout.spacing = 18;
@@ -499,7 +567,7 @@ namespace GameUI.EditorTools
 
             if (title != null)
             {
-                var t = Txt(win.transform, "Title", title, 84, TextRole.Title);
+                var t = Txt(win.transform, "Title", title, 84, TextLook.Title);
                 Layout(t.gameObject, size.x - 120, 100);
             }
 
@@ -520,7 +588,7 @@ namespace GameUI.EditorTools
             var bgRt = (RectTransform)bg.transform;
             bgRt.anchorMin = new Vector2(0, 0.3f);
             bgRt.anchorMax = new Vector2(1, 0.7f);
-            Img(bg, ImageRole.SliderBackground, backgroundSprite);
+            Img(bg, Look.SliderBackground, backgroundSprite);
 
             var fillArea = UI("Fill Area", go.transform);
             Stretch(fillArea);
@@ -531,7 +599,7 @@ namespace GameUI.EditorTools
             faRt.offsetMax = new Vector2(-15, 0);
             var fill = UI("Fill", fillArea.transform);
             ((RectTransform)fill.transform).sizeDelta = new Vector2(10, 0);
-            Img(fill, ImageRole.SliderFill, roundedSprite, false);
+            Img(fill, Look.SliderFill, roundedSprite, false);
 
             var handleArea = UI("Handle Slide Area", go.transform);
             Stretch(handleArea);
@@ -540,7 +608,7 @@ namespace GameUI.EditorTools
             haRt.offsetMax = new Vector2(-20, 0);
             var handle = UI("Handle", handleArea.transform);
             ((RectTransform)handle.transform).sizeDelta = new Vector2(56, 0);
-            var handleImg = Img(handle, ImageRole.SliderHandle, knobSprite);
+            var handleImg = Img(handle, Look.SliderHandle, knobSprite);
 
             slider.fillRect = (RectTransform)fill.transform;
             slider.handleRect = (RectTransform)handle.transform;
@@ -560,11 +628,11 @@ namespace GameUI.EditorTools
 
             var bg = UI("Background", go.transform);
             Stretch(bg);
-            var bgImg = Img(bg, ImageRole.ToggleBackground, roundedSprite);
+            var bgImg = Img(bg, Look.ToggleBackground, roundedSprite);
 
             var check = UI("Checkmark", bg.transform);
             Stretch(check, 8);
-            var checkImg = Img(check, ImageRole.ToggleCheckmark, checkSprite, false);
+            var checkImg = Img(check, Look.ToggleCheckmark, checkSprite, false);
 
             toggle.targetGraphic = bgImg;
             toggle.graphic = checkImg;
@@ -576,32 +644,77 @@ namespace GameUI.EditorTools
         {
             var row = HStack(parent, name, 30);
             row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-            Layout(row, 960, 76);
-            var text = Txt(row.transform, "Label", label, 46, TextRole.Body, TextAnchor.MiddleLeft);
-            Layout(text.gameObject, 430, 76);
+            Layout(row, 960, 68);
+            var text = Txt(row.transform, "Label", label, 44, TextLook.Body, TextAnchor.MiddleLeft);
+            Layout(text.gameObject, 430, 68);
             return row;
         }
 
-        // Icon inside a button; the button's text label shows until the theme has an icon sprite.
-        static void AddIcon(Button button, ImageRole role)
+        // Empty icon Image inside a button, switched off: give it a sprite, tick its Image on and
+        // hide the button's text label if you want an icon instead of text.
+        static void AddIcon(Button button, Look role)
         {
             var icon = UI("Icon", button.transform);
             Stretch(icon, 22);
-            var label = button.transform.Find("Label");
-            IconImage(icon, role, label != null ? label.gameObject : null).preserveAspect = true;
+            IconImage(icon, role, null).preserveAspect = true;
         }
 
-        static Image IconImage(GameObject go, ImageRole role, GameObject fallback)
+        // Image left empty and disabled (logo, lock icon...): turn it on once you give it a sprite.
+        static Image IconImage(GameObject go, Look role, GameObject fallback)
         {
             var image = go.AddComponent<Image>();
             image.raycastTarget = false;
-            var themed = go.AddComponent<ThemedImage>();
-            Set(themed, "role", role);
-            Set(themed, "hideIfNoSprite", true);
-            if (fallback != null) Set(themed, "fallback", fallback);
-            themed.Apply();
+            image.color = ColorOf(role);
+            image.enabled = false;
             return image;
         }
+
+        // ---------------------------------------------------------------- default look
+
+        enum Look
+        {
+            None,
+            MenuBackground, Logo, Panel, Card, Dim,
+            PrimaryButton, SecondaryButton, IconButton,
+            PauseIcon, BackIcon, SettingsIcon, LockIcon,
+            StarFull, StarEmpty, WinIcon, LoseIcon,
+            SliderBackground, SliderFill, SliderHandle,
+            ToggleBackground, ToggleCheckmark,
+        }
+
+        enum TextLook { Body, Title, Button, Light, Icon }
+
+        static readonly Color Ink = new Color(0.25f, 0.2f, 0.15f);
+        static readonly Color Orange = new Color(1f, 0.67f, 0.18f);
+
+        static Color ColorOf(Look look)
+        {
+            switch (look)
+            {
+                case Look.MenuBackground: return new Color(0.36f, 0.68f, 0.93f);
+                case Look.Panel: return new Color(1f, 0.97f, 0.88f);
+                case Look.Dim: return new Color(0f, 0f, 0f, 0.6f);
+                case Look.PrimaryButton: return Orange;
+                case Look.SecondaryButton: return new Color(0.42f, 0.75f, 0.42f);
+                case Look.IconButton: return new Color(1f, 1f, 1f, 0.9f);
+                case Look.PauseIcon:
+                case Look.BackIcon:
+                case Look.SettingsIcon:
+                case Look.LockIcon: return Ink;
+                case Look.StarFull: return new Color(1f, 0.82f, 0.1f);
+                case Look.StarEmpty: return new Color(0.75f, 0.72f, 0.66f);
+                case Look.WinIcon: return new Color(0.36f, 0.75f, 0.36f);
+                case Look.LoseIcon: return new Color(0.9f, 0.35f, 0.3f);
+                case Look.SliderBackground:
+                case Look.ToggleBackground: return new Color(0.82f, 0.76f, 0.66f);
+                case Look.SliderFill:
+                case Look.ToggleCheckmark: return Orange;
+                default: return Color.white;
+            }
+        }
+
+        static Color TextColorOf(TextLook look) =>
+            look == TextLook.Button || look == TextLook.Light ? Color.white : Ink;
 
         // ---------------------------------------------------------------- primitives
 
@@ -628,22 +741,17 @@ namespace GameUI.EditorTools
             return go;
         }
 
-        static Image Img(GameObject go, ImageRole role, Sprite defaultSprite, bool raycast = true)
+        static Image Img(GameObject go, Look role, Sprite defaultSprite, bool raycast = true)
         {
             var image = go.AddComponent<Image>();
             image.sprite = defaultSprite;
             image.type = defaultSprite != null ? Image.Type.Sliced : Image.Type.Simple;
             image.raycastTarget = raycast;
-            if (role != ImageRole.None)
-            {
-                var themed = go.AddComponent<ThemedImage>();
-                Set(themed, "role", role);
-                themed.Apply();
-            }
+            image.color = ColorOf(role);
             return image;
         }
 
-        static Text Txt(Transform parent, string name, string content, int size, TextRole role, TextAnchor align = TextAnchor.MiddleCenter)
+        static Text Txt(Transform parent, string name, string content, int size, TextLook role, TextAnchor align = TextAnchor.MiddleCenter)
         {
             var go = UI(name, parent);
             var text = go.AddComponent<Text>();
@@ -654,13 +762,11 @@ namespace GameUI.EditorTools
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Overflow;
             text.raycastTarget = false;
-            var themed = go.AddComponent<ThemedText>();
-            Set(themed, "role", role);
-            themed.Apply();
+            text.color = TextColorOf(role);
             return text;
         }
 
-        static Button Btn(Transform parent, string name, string label, ImageRole role, Vector2 size, int fontSize)
+        static Button Btn(Transform parent, string name, string label, Look role, Vector2 size, int fontSize)
         {
             var go = UI(name, parent);
             Size(go, size.x, size.y);
@@ -671,7 +777,7 @@ namespace GameUI.EditorTools
             SetDisabledTint(button);
             go.AddComponent<ButtonClickSound>();
 
-            var text = Txt(go.transform, "Label", label, fontSize, role == ImageRole.IconButton ? TextRole.Icon : TextRole.Button);
+            var text = Txt(go.transform, "Label", label, fontSize, role == Look.IconButton ? TextLook.Icon : TextLook.Button);
             Stretch(text.gameObject, 8);
             return button;
         }
@@ -736,6 +842,7 @@ namespace GameUI.EditorTools
 
         static void SavePrefab(GameObject root, string path)
         {
+            UILayoutUnlocker.Unlock(root, keepRootLayoutElement: true);
             PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
         }

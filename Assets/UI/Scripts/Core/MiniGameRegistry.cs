@@ -28,12 +28,28 @@ namespace GameUI
     [CreateAssetMenu(menuName = "Game UI/MiniGame Registry", fileName = "MiniGameRegistry")]
     public class MiniGameRegistry : ScriptableObject
     {
+        [Header("Menu scenes (Assets/UI/Scenes; names must match the scene files)")]
         [SerializeField] string mainMenuScene = "MainMenu";
-        [Tooltip("If on, a minigame is locked until the one before it has been won.")]
-        [SerializeField] bool lockUntilPreviousWon = true;
+        [SerializeField] string levelSelectScene = "LevelSelect";
+        [Tooltip("Opened on top of the current scene (main menu or paused game).")]
+        [SerializeField] string settingsScene = "SettingsMenu";
+        [Tooltip("Opened on top of the paused minigame.")]
+        [SerializeField] string pauseScene = "PauseMenu";
+        [SerializeField] string winScene = "WinMenu";
+        [SerializeField] string loseScene = "LoseMenu";
+
+        [Header("Minigames")]
+        [Tooltip("If on, a minigame is locked until the one before it has been won. Off = every game is free to pick.")]
+        [SerializeField] bool lockUntilPreviousWon = false;
         [SerializeField] List<MiniGameInfo> games = new List<MiniGameInfo>();
 
         public string MainMenuScene => mainMenuScene;
+        public string LevelSelectScene => levelSelectScene;
+        public string SettingsScene => settingsScene;
+        public string PauseScene => pauseScene;
+        public string WinScene => winScene;
+        public string LoseScene => loseScene;
+        public IEnumerable<string> MenuScenes => new[] { mainMenuScene, levelSelectScene, settingsScene, pauseScene, winScene, loseScene };
         public IReadOnlyList<MiniGameInfo> Games => games;
         public int Count => games.Count;
 

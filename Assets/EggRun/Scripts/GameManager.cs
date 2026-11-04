@@ -17,6 +17,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] SpoonController spoon;
     [SerializeField] Egg egg;
     [SerializeField] Transform finishLine;
+    [Tooltip("Sun events + heat meter. Added automatically if left empty.")]
+    [SerializeField] SunGlare sunGlare;
 
     [Header("UI")]
     [SerializeField] Text timerText;
@@ -45,6 +47,14 @@ public class GameManager : MonoBehaviour
         startButton.onClick.AddListener(StartRound);
         retryButton.onClick.AddListener(Retry);
         egg.Dropped += () => EndRound(false, "The egg fell!");
+
+        if (sunGlare == null) sunGlare = GetComponent<SunGlare>();
+        if (sunGlare == null) sunGlare = gameObject.AddComponent<SunGlare>();
+        sunGlare.Cooked += () =>
+        {
+            egg.Freeze(true); // a cooked egg stays in the spoon
+            EndRound(false, sunGlare.CookedText);
+        };
     }
 
     void Start()
@@ -61,6 +71,7 @@ public class GameManager : MonoBehaviour
         walkButton.SetActive(false);
         debugText.gameObject.SetActive(ShowDebug);
         UpdateTimerText();
+        sunGlare.Prepare();
     }
 
     void StartRound()
@@ -74,6 +85,7 @@ public class GameManager : MonoBehaviour
         startPanel.SetActive(false);
         walkButton.SetActive(true);
         state = State.Playing;
+        sunGlare.Begin(egg, () => timeLeft);
     }
 
     void Update()
@@ -81,7 +93,9 @@ public class GameManager : MonoBehaviour
         debugText.gameObject.SetActive(ShowDebug);
         if (ShowDebug && TiltInput.Instance != null)
             debugText.text = $"Tilt {TiltInput.Instance.Angle:0.0}°  ({TiltInput.Instance.Source})"
-                + (ShakeDetector.Instance != null ? $"\nShake {ShakeDetector.Instance.Strength:0.0} g" : "");
+                + (ShakeDetector.Instance != null ? $"\nShake {ShakeDetector.Instance.Strength:0.0} g" : "")
+                + (LightCoverDetector.Instance != null ? "\n" + LightCoverDetector.Instance.DebugLine() : "")
+                + $"\nSun {sunGlare.PhaseName}  heat {sunGlare.Heat01:P0}";
 
         if (state != State.Playing) return;
 
@@ -101,6 +115,7 @@ public class GameManager : MonoBehaviour
 
         player.CanWalk = false;
         walkButton.SetActive(false);
+        sunGlare.Stop();
 
         if (MiniGameBridge.IsAvailable)
         {

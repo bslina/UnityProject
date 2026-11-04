@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8263d3f2bc167b4aba7188a585ada68, type: 3}
+  m_Name: MiniGameRegistry
+  m_EditorClassIdentifier: Assembly-CSharp::GameUI.MiniGameRegistry
+  mainMenuScene: MainMenu
+  levelSelectScene: LevelSelect
+  settingsScene: SettingsMenu
+  pauseScene: PauseMenu
+  winScene: WinMenu
+  loseScene: LoseMenu
+  lockUntilPreviousWon: 0
+  games:
+  - id: egg_run
+    displayName: Egg Run
+    description: Balance the egg on the spoon and reach the flag!
+    sceneName: EggRun
+    icon: {fileID: 0}
+    music: {fileID: 0}
+    comingSoon: 0
+  - id: sound_copy
+    displayName: Sound Copy
+    description: 'One sound, two imitations: the AI picks the winner!'
+    sceneName: Main
+    icon: {fileID: 0}
+    music: {fileID: 0}
+    comingSoon: 0
+  - id: photo_challenge
+    displayName: Photo Challenge
+    description: Find the object and take its picture!
+    sceneName: MainScene
+    icon: {fileID: 0}
+    music: {fileID: 0}
+    comingSoon: 0
+  - id: minigame_4
+    displayName: Mini Game 4
+    description: Coming soon
+    sceneName: 
+    icon: {fileID: 0}
+    music: {fileID: 0}
+    comingSoon: 1

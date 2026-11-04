@@ -2,15 +2,23 @@ using UnityEngine;
 
 namespace GameUI
 {
-    // Menu music, button clicks and win/lose jingles. The clips come from the UI Theme
-    // (Assets/UI/Resources/UITheme.asset), and per-minigame music from the MiniGame Registry.
+    // Menu music, button clicks and win/lose jingles. Drag the clips in on the GameUI prefab
+    // (Assets/UI/Resources/GameUI.prefab, root object). Per-minigame music comes from the MiniGame Registry.
     public class AudioManager : MonoBehaviour
     {
         [SerializeField] AudioSource musicSource;
         [SerializeField] AudioSource sfxSource;
 
+        [Header("Sounds (optional)")]
+        [SerializeField] AudioClip menuMusic;
+        [SerializeField] AudioClip buttonClick;
+        [SerializeField] AudioClip winSound;
+        [SerializeField] AudioClip loseSound;
+
         void OnEnable()
         {
+            // Pausing mutes the game (AudioListener.pause); menu clicks must still be heard.
+            if (sfxSource != null) sfxSource.ignoreListenerPause = true;
             GameSettings.Changed += ApplyVolumes;
             ApplyVolumes();
         }
@@ -26,8 +34,7 @@ namespace GameUI
         // Menu scenes play the theme's menu music; minigames play their own (or nothing).
         public void PlayMusicFor(MiniGameInfo game)
         {
-            var theme = UITheme.Current;
-            AudioClip clip = game != null ? game.music : (theme != null ? theme.menuMusic : null);
+            AudioClip clip = game != null ? game.music : menuMusic;
             if (musicSource == null || musicSource.clip == clip && musicSource.isPlaying) return;
 
             musicSource.clip = clip;
@@ -35,13 +42,9 @@ namespace GameUI
             else musicSource.Stop();
         }
 
-        public void PlayClick() => PlaySfx(UITheme.Current != null ? UITheme.Current.buttonClick : null);
+        public void PlayClick() => PlaySfx(buttonClick);
 
-        public void PlayResult(bool won)
-        {
-            var theme = UITheme.Current;
-            if (theme != null) PlaySfx(won ? theme.winSound : theme.loseSound);
-        }
+        public void PlayResult(bool won) => PlaySfx(won ? winSound : loseSound);
 
         public void PlaySfx(AudioClip clip)
         {

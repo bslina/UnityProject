@@ -16,7 +16,7 @@ public class SensorCheck : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Create()
     {
-        if (FindFirstObjectByType<SensorCheck>() != null) return;
+        if (FindAnyObjectByType<SensorCheck>() != null) return;
         var go = new GameObject("SensorCheck");
         DontDestroyOnLoad(go);
         go.AddComponent<SensorCheck>();

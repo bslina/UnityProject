@@ -7,14 +7,29 @@ using UnityEngine.SceneManagement;
 
 namespace GameUI
 {
+    // What the last minigame reported, read by the Win / Lose scenes.
+    public class GameResult
+    {
+        public bool Won;
+        public string Detail;
+        public int Stars;
+        public int Score;
+        public bool NewBest;
+        public int GameIndex;
+    }
+
     // The "big game" brain. Lives on the GameUI prefab (Assets/UI/Resources/GameUI.prefab),
     // which spawns itself before the first scene loads and survives every scene change.
-    // So you can press Play in ANY scene (MainMenu, EggRun, a colleague's scene) and the
-    // pause button, settings and win/lose screens are there.
+    //
+    // Every menu is its own scene (Assets/UI/Scenes):
+    //   MainMenu, LevelSelect, WinMenu, LoseMenu  -> replace the current scene
+    //   PauseMenu, SettingsMenu                   -> opened ON TOP of the current scene (additive),
+    //                                                so a paused minigame keeps its state
     public class GameFlow : MonoBehaviour
     {
         public static GameFlow Instance { get; private set; }
 
+        [Tooltip("Pause button shown over minigames.")]
         [SerializeField] GameOverlayUI overlay;
         [SerializeField] AudioManager audioManager;
         [Tooltip("Black full-screen image used to fade between scenes.")]
@@ -30,8 +45,18 @@ namespace GameUI
         public bool ResultShown { get; private set; }
         public AudioManager Audio => audioManager;
 
-        // Set before going back to the main menu so it opens straight on the level menu.
-        public static bool OpenLevelsOnMenuLoad;
+        // The minigame played last (still set while the Win / Lose scene is showing).
+        public int LastGameIndex { get; private set; } = -1;
+        // Filled when a minigame calls MiniGameBridge.Win / Lose. Null if no game was played yet.
+        public GameResult LastResult { get; private set; }
+
+        string MenuName(string name, string fallback) => string.IsNullOrEmpty(name) ? fallback : name;
+        string MainMenuScene => MenuName(Registry != null ? Registry.MainMenuScene : null, "MainMenu");
+        string LevelSelectScene => MenuName(Registry != null ? Registry.LevelSelectScene : null, "LevelSelect");
+        string SettingsScene => MenuName(Registry != null ? Registry.SettingsScene : null, "SettingsMenu");
+        string PauseScene => MenuName(Registry != null ? Registry.PauseScene : null, "PauseMenu");
+        string WinScene => MenuName(Registry != null ? Registry.WinScene : null, "WinMenu");
+        string LoseScene => MenuName(Registry != null ? Registry.LoseScene : null, "LoseMenu");
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Bootstrap()
@@ -74,11 +99,12 @@ namespace GameUI
 
         void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (mode != LoadSceneMode.Single) return;
+            if (mode != LoadSceneMode.Single) return; // pause / settings popups don't change the game state
 
             ResultShown = false;
             SetPaused(false);
             CurrentIndex = Registry != null ? Registry.IndexOfScene(scene.name) : -1;
+            if (InMiniGame) LastGameIndex = CurrentIndex;
             EnsureEventSystem();
 
             if (overlay != null) overlay.OnSceneChanged(InMiniGame);
@@ -94,11 +120,19 @@ namespace GameUI
 
         void OnBackPressed()
         {
-            if (IsLoading || overlay == null) return;
-            if (overlay.CloseTopPopup()) return;
+            if (IsLoading) return;
 
-            if (InMiniGame && !ResultShown) Pause();
-            else if (!InMiniGame) MainMenuUI.HandleBack();
+            if (IsOpenOnTop(SettingsScene)) { CloseSettings(); return; }
+            if (IsPaused) { Resume(); return; }
+            if (InMiniGame)
+            {
+                if (!ResultShown) Pause();
+                return;
+            }
+
+            // Menu scenes: main menu quits, every other menu goes back to the main menu.
+            if (SceneManager.GetActiveScene().name == MainMenuScene) Quit();
+            else LoadMainMenu();
         }
 
         // ---------- Navigation ----------
@@ -114,32 +148,33 @@ namespace GameUI
         public void PlayGame(int index)
         {
             var game = Registry != null ? Registry.Get(index) : null;
-            if (game == null || !game.IsPlayable) return;
+            if (game == null || !game.IsPlayable)
+            {
+                PlayCampaign();
+                return;
+            }
             LoadScene(game.sceneName);
         }
 
-        public void Restart() => LoadScene(SceneManager.GetActiveScene().name);
+        // From a minigame (pause menu) or from the Win / Lose scene.
+        public void Restart()
+        {
+            if (InMiniGame) LoadScene(SceneManager.GetActiveScene().name);
+            else PlayGame(LastGameIndex);
+        }
 
-        public bool HasNextGame => Registry != null && InMiniGame && Registry.NextPlayable(CurrentIndex) >= 0;
+        public bool HasNextGame => Registry != null && LastGameIndex >= 0 && Registry.NextPlayable(LastGameIndex) >= 0;
 
         public void NextGame()
         {
-            int next = Registry != null ? Registry.NextPlayable(CurrentIndex) : -1;
+            int next = Registry != null && LastGameIndex >= 0 ? Registry.NextPlayable(LastGameIndex) : -1;
             if (next >= 0) PlayGame(next);
             else LoadMainMenu();
         }
 
-        public void LoadMainMenu()
-        {
-            OpenLevelsOnMenuLoad = false;
-            LoadScene(Registry != null ? Registry.MainMenuScene : "MainMenu");
-        }
+        public void LoadMainMenu() => LoadScene(MainMenuScene);
 
-        public void LoadLevelMenu()
-        {
-            OpenLevelsOnMenuLoad = true;
-            LoadScene(Registry != null ? Registry.MainMenuScene : "MainMenu");
-        }
+        public void LoadLevelMenu() => LoadScene(LevelSelectScene);
 
         public void Quit()
         {
@@ -161,16 +196,11 @@ namespace GameUI
             IsLoading = true;
             yield return Fade(1f);
 
-            if (overlay != null) overlay.CloseAll();
             var op = SceneManager.LoadSceneAsync(sceneName);
             if (op == null)
-            {
-                Debug.LogError($"Scene '{sceneName}' can't be loaded. Add it to File > Build Profiles > Scene List.");
-            }
+                Debug.LogError($"Scene '{sceneName}' can't be loaded. Run Tools > Game UI > Sync Build Scene List.");
             else
-            {
                 while (!op.isDone) yield return null;
-            }
 
             yield return Fade(0f);
             IsLoading = false;
@@ -190,20 +220,54 @@ namespace GameUI
             fader.blocksRaycasts = target > 0f;
         }
 
+        // ---------- Popup scenes (loaded on top) ----------
+
+        static bool IsLoaded(string sceneName) => SceneManager.GetSceneByName(sceneName).isLoaded;
+
+        // True when the scene is open as a popup over another scene (not played on its own).
+        static bool IsOpenOnTop(string sceneName) => IsLoaded(sceneName) && SceneManager.sceneCount > 1;
+
+        static void OpenOnTop(string sceneName)
+        {
+            if (SceneManager.GetSceneByName(sceneName).IsValid()) return; // already open or opening
+            if (SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive) == null)
+                Debug.LogError($"Scene '{sceneName}' can't be loaded. Run Tools > Game UI > Sync Build Scene List.");
+        }
+
+        static void CloseOnTop(string sceneName)
+        {
+            var scene = SceneManager.GetSceneByName(sceneName);
+            if (scene.isLoaded && SceneManager.sceneCount > 1) SceneManager.UnloadSceneAsync(scene);
+        }
+
+        public void OpenSettings()
+        {
+            if (IsLoading) return;
+            OpenOnTop(SettingsScene);
+        }
+
+        public void CloseSettings()
+        {
+            // Played on its own (opened directly in the Editor): there is nothing under it.
+            if (!IsOpenOnTop(SettingsScene)) LoadMainMenu();
+            else CloseOnTop(SettingsScene);
+        }
+
         // ---------- Pause ----------
 
         public void Pause()
         {
             if (!InMiniGame || IsPaused || ResultShown || IsLoading) return;
             SetPaused(true);
-            if (overlay != null) overlay.ShowPause();
+            OpenOnTop(PauseScene);
         }
 
         public void Resume()
         {
             if (!IsPaused) return;
+            CloseOnTop(SettingsScene);
+            CloseOnTop(PauseScene);
             SetPaused(false);
-            if (overlay != null) overlay.HidePause();
         }
 
         void SetPaused(bool paused)
@@ -212,6 +276,7 @@ namespace GameUI
             IsPaused = paused;
             Time.timeScale = paused || ResultShown ? 0f : 1f;
             AudioListener.pause = paused;
+            if (overlay != null) overlay.Refresh();
             if (changed) MiniGameBridge.RaisePauseChanged(paused);
         }
 
@@ -220,40 +285,40 @@ namespace GameUI
             if (overlay != null) overlay.SetPauseButtonVisible(visible);
         }
 
-        public void OpenSettings()
-        {
-            if (overlay != null) overlay.ShowSettings();
-        }
-
         // ---------- Results ----------
 
         public void ReportResult(bool won, string detail, int stars, int score, float delay)
         {
             if (ResultShown || IsLoading) return;
             ResultShown = true;
+            if (overlay != null) overlay.Refresh();
 
             var game = CurrentGame;
+            stars = Mathf.Clamp(stars, 0, 3);
             bool newBest = false;
-            if (won && game != null) newBest = SaveData.RecordWin(game.id, Mathf.Clamp(stars, 0, 3), score);
+            if (won && game != null) newBest = SaveData.RecordWin(game.id, stars, score);
 
-            StartCoroutine(ShowResultAfter(delay, won, detail, stars, score, newBest));
+            LastResult = new GameResult
+            {
+                Won = won, Detail = detail, Stars = won ? stars : 0, Score = score,
+                NewBest = newBest, GameIndex = CurrentIndex,
+            };
+            StartCoroutine(ShowResultAfter(delay, won));
         }
 
-        IEnumerator ShowResultAfter(float delay, bool won, string detail, int stars, int score, bool newBest)
+        IEnumerator ShowResultAfter(float delay, bool won)
         {
             if (delay > 0f) yield return new WaitForSecondsRealtime(delay);
-            if (IsPaused) SetPaused(false);
-            Time.timeScale = 0f;
-
-            if (audioManager != null) audioManager.PlayResult(won);
-            if (overlay != null) overlay.ShowResult(won, detail, stars, score, newBest, HasNextGame);
+            if (IsPaused) Resume();
+            Time.timeScale = 0f; // freeze the minigame during the fade
+            LoadScene(won ? WinScene : LoseScene);
         }
 
         // ---------- Helpers ----------
 
         static void EnsureEventSystem()
         {
-            if (FindFirstObjectByType<EventSystem>() != null) return;
+            if (FindAnyObjectByType<EventSystem>() != null) return;
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
             Debug.Log("GameUI: no EventSystem in this scene, created one.");
         }

@@ -3,13 +3,11 @@ using UnityEngine.UI;
 
 namespace GameUI
 {
-    // The always-on-top canvas of the GameUI prefab: pause button + pause, settings and result popups.
+    // The always-on-top canvas of the GameUI prefab: the pause button shown over every minigame.
+    // The pause / settings / win / lose screens themselves are scenes in Assets/UI/Scenes.
     public class GameOverlayUI : MonoBehaviour
     {
         [SerializeField] Button pauseButton;
-        [SerializeField] PauseMenuUI pauseMenu;
-        [SerializeField] SettingsUI settings;
-        [SerializeField] ResultUI result;
 
         bool pauseButtonWanted = true;
         bool inMiniGame;
@@ -17,66 +15,28 @@ namespace GameUI
         void Awake()
         {
             pauseButton.onClick.AddListener(() => GameFlow.Instance.Pause());
-            CloseAll();
+            Refresh();
         }
 
         public void OnSceneChanged(bool isMiniGame)
         {
             inMiniGame = isMiniGame;
             pauseButtonWanted = true;
-            CloseAll();
+            Refresh();
         }
 
         public void SetPauseButtonVisible(bool visible)
         {
             pauseButtonWanted = visible;
-            RefreshPauseButton();
+            Refresh();
         }
 
-        void RefreshPauseButton()
+        public void Refresh()
         {
-            bool resultOpen = result != null && result.IsOpen;
-            bool pauseOpen = pauseMenu != null && pauseMenu.IsOpen;
-            pauseButton.gameObject.SetActive(inMiniGame && pauseButtonWanted && !resultOpen && !pauseOpen);
-        }
-
-        public void ShowPause()
-        {
-            pauseMenu.Show();
-            RefreshPauseButton();
-        }
-
-        public void HidePause()
-        {
-            if (settings.IsOpen) settings.Hide();
-            pauseMenu.HideImmediate();
-            RefreshPauseButton();
-        }
-
-        public void ShowSettings() => settings.Show();
-
-        public void ShowResult(bool won, string detail, int stars, int score, bool newBest, bool hasNext)
-        {
-            pauseMenu.HideImmediate();
-            settings.HideImmediate();
-            result.Show(won, detail, stars, score, newBest, hasNext);
-            RefreshPauseButton();
-        }
-
-        // Android back: closes settings first, then the pause menu. Returns true if it closed something.
-        public bool CloseTopPopup()
-        {
-            if (settings.IsOpen) { settings.Hide(); return true; }
-            if (pauseMenu.IsOpen) { GameFlow.Instance.Resume(); return true; }
-            return result.IsOpen; // the result screen stays until a button is pressed
-        }
-
-        public void CloseAll()
-        {
-            pauseMenu.HideImmediate();
-            settings.HideImmediate();
-            result.HideImmediate();
-            RefreshPauseButton();
+            if (pauseButton == null) return;
+            var flow = GameFlow.Instance;
+            bool busy = flow != null && (flow.IsPaused || flow.ResultShown);
+            pauseButton.gameObject.SetActive(inMiniGame && pauseButtonWanted && !busy);
         }
     }
 }

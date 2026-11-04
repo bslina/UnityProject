@@ -1,27 +1,26 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace GameUI
 {
-    // Level menu: one card per entry in the MiniGame Registry, built when the panel opens.
-    public class LevelSelectUI : UIPanel
+    // LevelSelect scene: one card per entry in the MiniGame Registry (Assets/UI/Resources/MiniGameRegistry.asset).
+    public class LevelSelectUI : MonoBehaviour
     {
         [SerializeField] LevelButton cardPrefab;
         [Tooltip("Parent of the cards (has a layout group).")]
         [SerializeField] Transform cardContainer;
         [SerializeField] Button backButton;
-
-        public event Action BackPressed;
+        [Tooltip("Optional: opens the settings on top of this menu.")]
+        [SerializeField] Button settingsButton;
 
         static readonly List<LevelSelectUI> open = new List<LevelSelectUI>();
         readonly List<LevelButton> cards = new List<LevelButton>();
 
-        protected override void Awake()
+        void Awake()
         {
-            base.Awake();
-            backButton.onClick.AddListener(() => BackPressed?.Invoke());
+            if (backButton != null) backButton.onClick.AddListener(() => GameFlow.Instance.LoadMainMenu());
+            if (settingsButton != null) settingsButton.onClick.AddListener(() => GameFlow.Instance.OpenSettings());
         }
 
         void OnEnable()
@@ -32,9 +31,10 @@ namespace GameUI
 
         void OnDisable() => open.Remove(this);
 
+        // Called after "Reset progress" in the settings so the stars disappear.
         public static void RefreshAll()
         {
-            foreach (var panel in open) panel.Refresh();
+            foreach (var menu in open) menu.Refresh();
         }
 
         public void Refresh()

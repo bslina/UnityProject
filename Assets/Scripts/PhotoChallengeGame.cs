@@ -249,7 +249,7 @@ public class PhotoChallengeGame : MonoBehaviour
         {
             GameObject eventObject = new GameObject("EventSystem");
             eventObject.AddComponent<EventSystem>();
-            eventObject.AddComponent<StandaloneInputModule>();
+            eventObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
         }
 
         GameObject canvasObject = new GameObject("GameCanvas");
