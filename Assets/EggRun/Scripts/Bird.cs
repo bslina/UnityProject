@@ -115,6 +115,7 @@ public class Bird : MonoBehaviour
         timer = 0f;
         state = State.FlyingIn;
         Show(true);
+        GameUI.GameAudio.Play("bird_flap", 0.7f);
     }
 
     void Land()
@@ -125,6 +126,7 @@ public class Bird : MonoBehaviour
         buzzTimer = 1f;
         if (hintText != null) hintText.gameObject.SetActive(true);
         Haptics.Pulse(150, 255);
+        GameUI.GameAudio.Play("bird_chirp");
     }
 
     void Pecking()
@@ -151,6 +153,7 @@ public class Bird : MonoBehaviour
         if (state == State.Perched || state == State.FlyingIn)
         {
             Haptics.Pulse(80, 200);
+            GameUI.GameAudio.Play("bird_flap");
             FlyOff();
         }
     }

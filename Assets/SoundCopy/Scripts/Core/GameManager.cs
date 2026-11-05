@@ -353,6 +353,9 @@ namespace SoundCopy
             SetVisible(verdictPanel, state == GameState.Verdict);
             SetVisible(resultsPanel, state == GameState.Results);
             SetVisible(spinPanel, state == GameState.Spin);
+            // Music off while the meme video plays and while someone records (the mic would pick it up).
+            MiniGameBridge.SetMusicPaused(state == GameState.Video || state == GameState.HandOver
+                                          || state == GameState.Recording || state == GameState.AIAnalysis);
             if (pauseOverlay != null)
                 pauseOverlay.SetAvailable(state == GameState.Round || state == GameState.Spin || state == GameState.Video || state == GameState.HandOver || state == GameState.Verdict);
         }

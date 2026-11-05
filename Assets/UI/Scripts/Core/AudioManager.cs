@@ -2,18 +2,26 @@ using UnityEngine;
 
 namespace GameUI
 {
-    // Menu music, button clicks and win/lose jingles. Drag the clips in on the GameUI prefab
-    // (Assets/UI/Resources/GameUI.prefab, root object). Per-minigame music comes from the MiniGame Registry.
+    // Music and the shared sound effects (click, win, lose).
+    // Clips dragged in here win; empty slots use the files in Assets/UI/Resources/Audio:
+    //   music_menu, click, win, lose, and music_<minigame id> for each minigame (e.g. music_egg_run).
+    // A minigame's own Music slot in the MiniGame Registry also beats the file.
     public class AudioManager : MonoBehaviour
     {
         [SerializeField] AudioSource musicSource;
         [SerializeField] AudioSource sfxSource;
 
-        [Header("Sounds (optional)")]
+        [Header("Sounds (optional: empty = Resources/Audio files)")]
         [SerializeField] AudioClip menuMusic;
         [SerializeField] AudioClip buttonClick;
         [SerializeField] AudioClip winSound;
         [SerializeField] AudioClip loseSound;
+
+        [Header("Mix")]
+        [Tooltip("Music level under the effects (multiplied with the player's Music volume).")]
+        [SerializeField, Range(0f, 1f)] float musicLevel = 0.55f;
+
+        bool musicPaused;
 
         void OnEnable()
         {
@@ -27,28 +35,43 @@ namespace GameUI
 
         void ApplyVolumes()
         {
-            if (musicSource != null) musicSource.volume = GameSettings.MusicVolume;
+            if (musicSource != null) musicSource.volume = GameSettings.MusicVolume * musicLevel;
             if (sfxSource != null) sfxSource.volume = GameSettings.SfxVolume;
         }
 
-        // Menu scenes play the theme's menu music; minigames play their own (or nothing).
+        // Menu scenes play the menu music; each minigame plays its own.
         public void PlayMusicFor(MiniGameInfo game)
         {
-            AudioClip clip = game != null ? game.music : menuMusic;
-            if (musicSource == null || musicSource.clip == clip && musicSource.isPlaying) return;
+            AudioClip clip = game != null
+                ? (game.music != null ? game.music : GameAudio.Get("music_" + game.id))
+                : (menuMusic != null ? menuMusic : GameAudio.Get("music_menu"));
+            musicPaused = false;
+            if (musicSource == null) return;
+            if (musicSource.clip == clip && musicSource.isPlaying) return;
 
             musicSource.clip = clip;
+            musicSource.loop = true;
             if (clip != null) musicSource.Play();
             else musicSource.Stop();
         }
 
-        public void PlayClick() => PlaySfx(buttonClick);
-
-        public void PlayResult(bool won) => PlaySfx(won ? winSound : loseSound);
-
-        public void PlaySfx(AudioClip clip)
+        // For moments that need silence (e.g. Sound Copy while the microphone records).
+        public void SetMusicPaused(bool paused)
         {
-            if (clip != null && sfxSource != null) sfxSource.PlayOneShot(clip);
+            if (musicSource == null || paused == musicPaused) return;
+            musicPaused = paused;
+            if (paused) musicSource.Pause();
+            else if (musicSource.clip != null) musicSource.UnPause();
+        }
+
+        public void PlayClick() => PlaySfx(buttonClick != null ? buttonClick : GameAudio.Get("click"), 0.8f);
+
+        public void PlayResult(bool won) => PlaySfx(won ? (winSound != null ? winSound : GameAudio.Get("win"))
+                                                        : (loseSound != null ? loseSound : GameAudio.Get("lose")), won ? 1f : 0.7f);
+
+        public void PlaySfx(AudioClip clip, float volume = 1f)
+        {
+            if (clip != null && sfxSource != null) sfxSource.PlayOneShot(clip, volume);
         }
     }
 }

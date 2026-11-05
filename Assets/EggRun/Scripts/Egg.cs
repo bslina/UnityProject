@@ -51,6 +51,7 @@ public class Egg : MonoBehaviour
         if (brokenVisual != null) brokenVisual.SetActive(true);
 
         Haptics.Pulse(400);
+        GameUI.GameAudio.Play("egg_crack");
         Dropped?.Invoke();
     }
 }

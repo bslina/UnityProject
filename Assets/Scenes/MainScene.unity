@@ -480,6 +480,13 @@ MonoBehaviour:
   setupJungleBackground: {fileID: 21300000, guid: 673cbeaec8b1135439c1936e3cae7036, type: 3}
   gameplayJungleBackground: {fileID: 21300000, guid: 8502826f0504e9648acbf188c5c58da5, type: 3}
   resultJungleBackground: {fileID: 21300000, guid: 673cbeaec8b1135439c1936e3cae7036, type: 3}
+  skinBackground: {fileID: 21300000, guid: 673cbeaec8b1135439c1936e3cae7036, type: 3}
+  skinPanel: {fileID: 21300056, guid: 1eaee135ce037439d925cee5e41ce026, type: 3}
+  skinButton: {fileID: 21300022, guid: 1eaee135ce037439d925cee5e41ce026, type: 3}
+  skinRibbon: {fileID: 21300122, guid: 1eaee135ce037439d925cee5e41ce026, type: 3}
+  skinTrophy: {fileID: 21300110, guid: 1eaee135ce037439d925cee5e41ce026, type: 3}
+  displayFont: {fileID: 11400000, guid: 7c3e3f19ef22f3f4f8443e495a42d852, type: 2}
+  bodyFont: {fileID: 11400000, guid: ae91e45c36919464ca9ddac2d694d047, type: 2}
   imageEncoderModelAsset: {fileID: 5022602860645237092, guid: 103b5f3d08f4cdb46840dcb21b73de14, type: 3}
   missionReferences:
   - missionLabel: A BOTTLE

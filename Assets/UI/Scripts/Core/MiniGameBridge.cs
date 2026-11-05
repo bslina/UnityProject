@@ -38,6 +38,12 @@ namespace GameUI
             if (GameFlow.Instance != null) GameFlow.Instance.SetPauseButtonVisible(visible);
         }
 
+        // Silence the minigame's music for a moment (e.g. while recording with the microphone).
+        public static void SetMusicPaused(bool paused)
+        {
+            if (GameFlow.Instance != null && GameFlow.Instance.Audio != null) GameFlow.Instance.Audio.SetMusicPaused(paused);
+        }
+
         internal static void RaisePauseChanged(bool paused) => PauseChanged?.Invoke(paused);
     }
 }

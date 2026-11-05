@@ -70,6 +70,7 @@ namespace SoundCopy.UI
             if (continueLabel != null) continueLabel.text = gameManager.IsLastRound ? "SEE RESULTS  >" : "NEXT ROUND  >";
             Apply(0f);
             if (round.winner != 0) Haptics.Pulse(150, 200);
+            GameUI.GameAudio.Play(round.winner != 0 ? "point" : "spin_result");
         }
 
         private void Update()

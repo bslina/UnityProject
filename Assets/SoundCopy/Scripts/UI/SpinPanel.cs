@@ -88,6 +88,7 @@ namespace SoundCopy.UI
                     Set(name + " GOES FIRST!", doubled ? "<color=#FFF1B8>FAST SPIN: x2 ROUND!</color>" : "Normal round.");
                     SetMain("LISTEN TO THE SOUND  >");
                     Haptics.Pulse(doubled ? 300 : 150, 230);
+                    GameUI.GameAudio.Play(doubled ? "spin_x2" : "spin_result");
                     break;
             }
         }

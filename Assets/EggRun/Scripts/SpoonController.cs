@@ -102,6 +102,7 @@ public class SpoonController : MonoBehaviour
                 stumbleAge = 0f;
                 stumbleTarget = Random.Range(stumbleAngle.x, stumbleAngle.y) * (Random.value < 0.5f ? -1f : 1f);
                 Haptics.Pulse(40, 120);
+                GameUI.GameAudio.Play("stumble", 0.6f);
             }
         }
 

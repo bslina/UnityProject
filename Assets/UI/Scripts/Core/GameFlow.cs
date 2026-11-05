@@ -99,6 +99,7 @@ namespace GameUI
 
         void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            StartCoroutine(AddClickSounds());
             if (mode != LoadSceneMode.Single) return; // pause / settings popups don't change the game state
 
             ResultShown = false;
@@ -114,6 +115,19 @@ namespace GameUI
                 if (CurrentGame != null && CurrentGame.hidePauseButton) overlay.SetPauseButtonVisible(false);
             }
             if (audioManager != null) audioManager.PlayMusicFor(CurrentGame);
+        }
+
+        // Every button in the game clicks: buttons without a ButtonClickSound get one. Scanned again a bit
+        // later because some minigames (Photo Challenge) build their buttons after the scene has loaded.
+        IEnumerator AddClickSounds()
+        {
+            foreach (float wait in new[] { 0f, 0.3f, 1.5f })
+            {
+                if (wait > 0f) yield return new WaitForSecondsRealtime(wait);
+                else yield return null;
+                foreach (var button in FindObjectsByType<UnityEngine.UI.Button>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    if (button.GetComponent<ButtonClickSound>() == null) button.gameObject.AddComponent<ButtonClickSound>();
+            }
         }
 
         void Update()

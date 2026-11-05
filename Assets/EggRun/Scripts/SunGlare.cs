@@ -102,6 +102,9 @@ public class SunGlare : MonoBehaviour
         sizzle = gameObject.AddComponent<AudioSource>();
         sizzle.playOnAwake = false;
         sizzle.loop = true;
+        // Empty slots use the files in Assets/UI/Resources/Audio (sun_warning, sizzle).
+        if (warningSound == null) warningSound = GameUI.GameAudio.Get("sun_warning");
+        if (sizzleLoop == null) sizzleLoop = GameUI.GameAudio.Get("sizzle");
         sizzle.clip = sizzleLoop;
     }
 
@@ -197,7 +200,11 @@ public class SunGlare : MonoBehaviour
     {
         SetPhase(Phase.Warning, warningTime);
         StartCoroutine(DoubleBuzz());
-        if (warningSound != null) AudioSource.PlayClipAtPoint(warningSound, Camera.main != null ? Camera.main.transform.position : Vector3.zero, GameUI.GameSettings.SfxVolume);
+        if (warningSound != null)
+        {
+            if (GameUI.GameFlow.Instance != null && GameUI.GameFlow.Instance.Audio != null) GameUI.GameFlow.Instance.Audio.PlaySfx(warningSound);
+            else AudioSource.PlayClipAtPoint(warningSound, Camera.main != null ? Camera.main.transform.position : Vector3.zero, GameUI.GameSettings.SfxVolume);
+        }
 
         if (firstSunThisRound)
         {

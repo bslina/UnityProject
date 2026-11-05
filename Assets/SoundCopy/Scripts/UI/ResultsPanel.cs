@@ -63,6 +63,7 @@ namespace SoundCopy.UI
             if (averageTexts[1] != null) averageTexts[1].text = Mathf.RoundToInt(gameManager.AverageAccuracy(2)) + "%";
 
             Haptics.Pulse(300, 255);
+            GameUI.GameAudio.Play("win");
         }
 
         static string Cell(float percent, bool quiet) => quiet ? "—" : Mathf.RoundToInt(percent) + "%";
