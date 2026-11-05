@@ -86,19 +86,26 @@ namespace SoundCopy.UI
             ApplyFonts();
         }
 
+        // Landscape "battle poster": headline on the left, play button in the centre, giant J1 / J2 on the right.
         private void BuildPosterBackground()
         {
-            GameObject background = UIFactory.CreateRect("BattlePosterBackground", transform, new Vector2(-0.035f, -0.01f), new Vector2(1.035f, 1.01f), Vector2.zero, Vector2.zero);
+            GameObject background = UIFactory.CreateRect("BattlePosterBackground", transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             Image image = background.AddComponent<Image>();
             image.sprite = posterBackground;
             image.color = Color.white;
-            image.preserveAspect = false;
             image.raycastTarget = false;
+            // The poster art is portrait: cover the whole landscape screen without stretching it.
+            AspectRatioFitter fitter = background.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            fitter.aspectRatio = posterBackground != null ? posterBackground.rect.width / posterBackground.rect.height : 0.45f;
+
+            GameObject shade = UIFactory.CreateRect("Shade", transform, Vector2.zero, Vector2.one, new Vector2(-200f, -200f), new Vector2(200f, 200f));
+            UIFactory.AddRounded(shade, new Color(0.10f, 0.06f, 0.13f, 0.35f), 0f);
         }
 
         private void BuildLogo()
         {
-            GameObject logo = UIFactory.CreateRect("Logo", transform, new Vector2(0.29f, 0.895f), new Vector2(0.71f, 0.975f), Vector2.zero, Vector2.zero);
+            GameObject logo = UIFactory.CreateRect("Logo", transform, new Vector2(0.10f, 0.855f), new Vector2(0.36f, 0.965f), Vector2.zero, Vector2.zero);
             TextMeshProUGUI text = UIFactory.CreateText("LogoText", logo.transform, "SOUND\nCOPY", 48f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
             text.lineSpacing = -20f;
             GameObject leftWave = UIFactory.CreateRect("LeftWave", logo.transform, new Vector2(0f, 0.15f), new Vector2(0.24f, 0.85f), Vector2.zero, Vector2.zero);
@@ -121,83 +128,76 @@ namespace SoundCopy.UI
 
         private void BuildHeadline()
         {
-            TextMeshProUGUI copy = UIFactory.CreateText("HeadlineCopy", transform, "COPIE", 142f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
-            copy.rectTransform.anchorMin = new Vector2(0.10f, 0.745f);
-            copy.rectTransform.anchorMax = new Vector2(0.90f, 0.875f);
-            copy.rectTransform.offsetMin = Vector2.zero;
-            copy.rectTransform.offsetMax = Vector2.zero;
+            TextMeshProUGUI copy = UIFactory.CreateText("HeadlineCopy", transform, "COPY", 190f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
+            SetAnchors(copy.rectTransform, new Vector2(0.03f, 0.58f), new Vector2(0.47f, 0.84f));
             copy.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 4f);
 
-            GameObject bannerShadow = UIFactory.CreateRect("HeadlineBannerShadow", transform, new Vector2(0.15f, 0.655f), new Vector2(0.85f, 0.76f), new Vector2(9f, -11f), new Vector2(9f, -11f));
+            GameObject bannerShadow = UIFactory.CreateRect("HeadlineBannerShadow", transform, new Vector2(0.06f, 0.40f), new Vector2(0.44f, 0.58f), new Vector2(9f, -11f), new Vector2(9f, -11f));
             UIFactory.AddRounded(bannerShadow, SoundCopyTheme.Ink, 2f);
             bannerShadow.transform.localRotation = Quaternion.Euler(0f, 0f, -4f);
-            GameObject banner = UIFactory.CreateRect("HeadlineBanner", transform, new Vector2(0.15f, 0.655f), new Vector2(0.85f, 0.76f), Vector2.zero, Vector2.zero);
+            GameObject banner = UIFactory.CreateRect("HeadlineBanner", transform, new Vector2(0.06f, 0.40f), new Vector2(0.44f, 0.58f), Vector2.zero, Vector2.zero);
             UIFactory.AddRounded(banner, SoundCopyTheme.Cream, 2f);
             banner.transform.localRotation = Quaternion.Euler(0f, 0f, -4f);
-            UIFactory.CreateText("HeadlineSound", banner.transform, "CE SON", 112f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
+            UIFactory.CreateText("HeadlineSound", banner.transform, "THIS SOUND", 140f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
 
-            TextMeshProUGUI subtitle = UIFactory.CreateText("Subtitle", transform, "Deux voix. Un point.", 35f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
-            subtitle.rectTransform.anchorMin = new Vector2(0.18f, 0.605f);
-            subtitle.rectTransform.anchorMax = new Vector2(0.82f, 0.655f);
-            subtitle.rectTransform.offsetMin = Vector2.zero;
-            subtitle.rectTransform.offsetMax = Vector2.zero;
+            TextMeshProUGUI subtitle = UIFactory.CreateText("Subtitle", transform, "Two voices. One point.", 46f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
+            SetAnchors(subtitle.rectTransform, new Vector2(0.06f, 0.29f), new Vector2(0.44f, 0.38f));
             subtitle.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 2f);
         }
 
         private void BuildPlayerLetters()
         {
-            TextMeshProUGUI firstShadow = CreatePosterLetter("J1Shadow", "J1", new Vector2(-0.10f, 0.26f), new Vector2(0.42f, 0.59f), SoundCopyTheme.Lime);
+            TextMeshProUGUI firstShadow = CreatePosterLetter("J1Shadow", "P1", new Vector2(0.70f, 0.46f), new Vector2(0.90f, 0.96f), SoundCopyTheme.Lime);
             firstShadow.rectTransform.anchoredPosition = new Vector2(10f, -12f);
-            firstPlayerLetter = CreatePosterLetter("J1", "J1", new Vector2(-0.10f, 0.26f), new Vector2(0.42f, 0.59f), SoundCopyTheme.DarkPlum).rectTransform;
-            TextMeshProUGUI secondShadow = CreatePosterLetter("J2Shadow", "J2", new Vector2(0.60f, 0.19f), new Vector2(1.12f, 0.52f), SoundCopyTheme.Coral);
+            firstPlayerLetter = CreatePosterLetter("P1", "P1", new Vector2(0.70f, 0.46f), new Vector2(0.90f, 0.96f), SoundCopyTheme.DarkPlum).rectTransform;
+            TextMeshProUGUI secondShadow = CreatePosterLetter("J2Shadow", "P2", new Vector2(0.80f, 0.10f), new Vector2(1.00f, 0.60f), SoundCopyTheme.Coral);
             secondShadow.rectTransform.anchoredPosition = new Vector2(10f, -12f);
-            secondPlayerLetter = CreatePosterLetter("J2", "J2", new Vector2(0.60f, 0.19f), new Vector2(1.12f, 0.52f), SoundCopyTheme.DarkPlum).rectTransform;
+            secondPlayerLetter = CreatePosterLetter("P2", "P2", new Vector2(0.80f, 0.10f), new Vector2(1.00f, 0.60f), SoundCopyTheme.DarkPlum).rectTransform;
         }
 
         private TextMeshProUGUI CreatePosterLetter(string name, string value, Vector2 min, Vector2 max, Color color)
         {
-            TextMeshProUGUI text = UIFactory.CreateText(name, transform, value, 210f, color, TextAlignmentOptions.Center, FontStyles.Bold);
-            text.rectTransform.anchorMin = min;
-            text.rectTransform.anchorMax = max;
-            text.rectTransform.offsetMin = Vector2.zero;
-            text.rectTransform.offsetMax = Vector2.zero;
-            text.rectTransform.localRotation = Quaternion.Euler(0f, 0f, name.Contains("J1") ? -9f : 8f);
+            TextMeshProUGUI text = UIFactory.CreateText(name, transform, value, 300f, color, TextAlignmentOptions.Center, FontStyles.Bold);
+            SetAnchors(text.rectTransform, min, max);
+            text.rectTransform.localRotation = Quaternion.Euler(0f, 0f, name.Contains("P1") ? -9f : 8f);
             return text;
         }
 
         private void BuildPlayAction()
         {
-            GameObject shadow = UIFactory.CreateRect("PlayShadow", transform, new Vector2(0.355f, 0.405f), new Vector2(0.645f, 0.545f), new Vector2(9f, -13f), new Vector2(9f, -13f));
-            UIFactory.AddRounded(shadow, SoundCopyTheme.Ink, 300f);
-            GameObject play = UIFactory.CreateRect("PlayButton", transform, new Vector2(0.355f, 0.405f), new Vector2(0.645f, 0.545f), Vector2.zero, Vector2.zero);
+            const float size = 330f;
+            Vector2 centre = new Vector2(0.585f, 0.54f);
+            GameObject shadow = UIFactory.CreateRect("PlayShadow", transform, centre, centre, Vector2.zero, Vector2.zero);
+            ((RectTransform)shadow.transform).sizeDelta = new Vector2(size, size);
+            ((RectTransform)shadow.transform).anchoredPosition = new Vector2(10f, -14f);
+            UIFactory.AddRounded(shadow, SoundCopyTheme.Ink, size * 0.5f);
+            GameObject play = UIFactory.CreateRect("PlayButton", transform, centre, centre, Vector2.zero, Vector2.zero);
+            ((RectTransform)play.transform).sizeDelta = new Vector2(size, size);
             playPulse = play.GetComponent<RectTransform>();
-            RoundedRectGraphic graphic = UIFactory.AddRounded(play, SoundCopyTheme.Cream, 300f, true);
+            Image graphic = UIFactory.AddRounded(play, SoundCopyTheme.Cream, size * 0.5f, true);
             UIFactory.AddNativeOutline(play, SoundCopyTheme.Ink, 5f);
             playButton = play.AddComponent<Button>();
             playButton.targetGraphic = graphic;
-            TextMeshProUGUI triangle = UIFactory.CreateText("PlayIcon", play.transform, ">", 88f, SoundCopyTheme.DarkPlum, TextAlignmentOptions.Center, FontStyles.Bold);
-            triangle.rectTransform.anchoredPosition = new Vector2(8f, 0f);
+            TextMeshProUGUI triangle = UIFactory.CreateText("PlayIcon", play.transform, ">", 150f, SoundCopyTheme.DarkPlum, TextAlignmentOptions.Center, FontStyles.Bold);
+            triangle.rectTransform.anchoredPosition = new Vector2(10f, 0f);
 
-            GameObject launch = UIFactory.CreateRect("LaunchAction", transform, new Vector2(0.14f, 0.105f), new Vector2(0.86f, 0.18f), Vector2.zero, Vector2.zero);
+            GameObject launch = UIFactory.CreateRect("LaunchAction", transform, new Vector2(0.45f, 0.14f), new Vector2(0.72f, 0.27f), Vector2.zero, Vector2.zero);
             launchPulse = launch.GetComponent<RectTransform>();
-            TextMeshProUGUI label = UIFactory.CreateText("LaunchLabel", launch.transform, "LANCER LE DUEL", 64f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
+            TextMeshProUGUI label = UIFactory.CreateText("LaunchLabel", launch.transform, "START THE DUEL", 78f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
             launchLabelButton = launch.AddComponent<Button>();
             launchLabelButton.targetGraphic = label;
         }
 
         private void BuildFooter()
         {
-            GameObject rules = UIFactory.CreateRect("RulesButton", transform, new Vector2(0.055f, 0.025f), new Vector2(0.36f, 0.075f), Vector2.zero, Vector2.zero);
-            RoundedRectGraphic rulesGraphic = UIFactory.AddRounded(rules, new Color(0f, 0f, 0f, 0f), 28f, true);
-            UIFactory.AddNativeOutline(rules, SoundCopyTheme.Cream, 2f);
+            GameObject rules = UIFactory.CreateRect("RulesButton", transform, new Vector2(0.035f, 0.04f), new Vector2(0.22f, 0.14f), Vector2.zero, Vector2.zero);
+            Image rulesGraphic = UIFactory.AddRounded(rules, new Color(0f, 0f, 0f, 0.35f), 50f, true);
+            UIFactory.AddNativeOutline(rules, SoundCopyTheme.Cream, 3f);
             rulesButton = rules.AddComponent<Button>();
             rulesButton.targetGraphic = rulesGraphic;
-            UIFactory.CreateText("Label", rules.transform, "LES RÈGLES", 31f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
-            TextMeshProUGUI offline = UIFactory.CreateText("Offline", transform, "HORS LIGNE  ·  2 JOUEURS", 23f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
-            offline.rectTransform.anchorMin = new Vector2(0.48f, 0.025f);
-            offline.rectTransform.anchorMax = new Vector2(0.95f, 0.075f);
-            offline.rectTransform.offsetMin = Vector2.zero;
-            offline.rectTransform.offsetMax = Vector2.zero;
+            UIFactory.CreateText("Label", rules.transform, "RULES", 40f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, FontStyles.Bold);
+            TextMeshProUGUI offline = UIFactory.CreateText("Offline", transform, "OFFLINE  ·  2 PLAYERS", 30f, SoundCopyTheme.Cream, TextAlignmentOptions.MidlineRight, FontStyles.Bold);
+            SetAnchors(offline.rectTransform, new Vector2(0.62f, 0.03f), new Vector2(0.97f, 0.09f));
         }
 
         private void BuildExitButton()
@@ -205,78 +205,81 @@ namespace SoundCopy.UI
             GameObject exit = UIFactory.CreateRect("ExitButton", transform, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
             RectTransform rt = exit.GetComponent<RectTransform>();
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(32f, -34f);
-            rt.sizeDelta = new Vector2(130f, 130f);
-            RoundedRectGraphic graphic = UIFactory.AddRounded(exit, SoundCopyTheme.Cream, 65f, true);
-            UIFactory.AddNativeOutline(exit, SoundCopyTheme.Ink, 4f);
-            exitButton = exit.AddComponent<Button>();
-            exitButton.targetGraphic = graphic;
-            UIFactory.CreateText("Arrow", exit.transform, "<", 64f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
+            rt.anchoredPosition = new Vector2(32f, -24f);
+            rt.sizeDelta = new Vector2(116f, 116f);
+            exitButton = MobileUI.RoundButton(exit.transform, "Button", SoundCopySkin.IconBack, "<", true);
         }
 
         private void BuildRulesOverlay()
         {
-            rulesOverlay = UIFactory.CreateRect("RulesOverlay", transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(rulesOverlay, new Color(0.035f, 0.01f, 0.05f, 0.96f), 0f);
+            rulesOverlay = UIFactory.CreateRect("RulesOverlay", transform, Vector2.zero, Vector2.one, new Vector2(-200f, -200f), new Vector2(200f, 200f));
+            UIFactory.AddRounded(rulesOverlay, new Color(0.035f, 0.01f, 0.05f, 0.96f), 0f, true);
+            GameObject area = UIFactory.CreateRect("Area", rulesOverlay.transform, Vector2.zero, Vector2.one, new Vector2(200f, 200f), new Vector2(-200f, -200f));
 
-            GameObject cardShadow = UIFactory.CreateRect("RulesShadow", rulesOverlay.transform, new Vector2(0.055f, 0.105f), new Vector2(0.945f, 0.895f), new Vector2(0f, -14f), new Vector2(0f, -14f));
+            GameObject cardShadow = UIFactory.CreateRect("RulesShadow", area.transform, new Vector2(0.05f, 0.06f), new Vector2(0.95f, 0.94f), new Vector2(0f, -14f), new Vector2(0f, -14f));
             UIFactory.AddRounded(cardShadow, SoundCopyTheme.Ink, 52f);
-            GameObject card = UIFactory.CreateRect("RulesCard", rulesOverlay.transform, new Vector2(0.055f, 0.105f), new Vector2(0.945f, 0.895f), Vector2.zero, Vector2.zero);
+            GameObject card = UIFactory.CreateRect("RulesCard", area.transform, new Vector2(0.05f, 0.06f), new Vector2(0.95f, 0.94f), Vector2.zero, Vector2.zero);
             UIFactory.AddRounded(card, SoundCopyTheme.Cream, 52f);
             UIFactory.AddNativeOutline(card, SoundCopyTheme.Ink, 5f);
 
-            GameObject kicker = UIFactory.CreateRect("Kicker", card.transform, new Vector2(.08f, .88f), new Vector2(.43f, .94f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(kicker, SoundCopyTheme.DarkPlum, 22f);
-            UIFactory.CreateText("KickerText", kicker.transform, "MODE DUEL · 2 JOUEURS", 24f, SoundCopyTheme.Lime, TextAlignmentOptions.Center, FontStyles.Bold);
+            GameObject kicker = UIFactory.CreateRect("Kicker", card.transform, new Vector2(.04f, .86f), new Vector2(.30f, .94f), Vector2.zero, Vector2.zero);
+            UIFactory.AddRounded(kicker, SoundCopyTheme.DarkPlum, 30f);
+            UIFactory.CreateText("KickerText", kicker.transform, "DUEL MODE · 2 PLAYERS", 30f, SoundCopyTheme.Lime, TextAlignmentOptions.Center, FontStyles.Bold);
 
-            TextMeshProUGUI title = UIFactory.CreateText("RulesTitle", card.transform, "COMMENT\nJOUER ?", 88f, SoundCopyTheme.Ink, TextAlignmentOptions.MidlineLeft, FontStyles.Bold);
-            title.lineSpacing = -14f;
-            title.rectTransform.anchorMin = new Vector2(.08f, .72f);
-            title.rectTransform.anchorMax = new Vector2(.92f, .88f);
-            title.rectTransform.offsetMin = Vector2.zero;
-            title.rectTransform.offsetMax = Vector2.zero;
-            TextMeshProUGUI intro = UIFactory.CreateText("RulesIntro", card.transform, "Un son. Deux imitations. L’IA donne le point.", 29f, SoundCopyTheme.MutedGray, TextAlignmentOptions.MidlineLeft, FontStyles.Bold);
-            intro.rectTransform.anchorMin = new Vector2(.08f, .665f);
-            intro.rectTransform.anchorMax = new Vector2(.92f, .72f);
-            intro.rectTransform.offsetMin = Vector2.zero;
-            intro.rectTransform.offsetMax = Vector2.zero;
+            TextMeshProUGUI title = UIFactory.CreateText("RulesTitle", card.transform, "HOW TO PLAY?", 96f, SoundCopyTheme.Ink, TextAlignmentOptions.MidlineLeft, FontStyles.Bold);
+            SetAnchors(title.rectTransform, new Vector2(.04f, .70f), new Vector2(.96f, .86f));
+            TextMeshProUGUI intro = UIFactory.CreateText("RulesIntro", card.transform, "One sound. Two imitations. The AI gives the point.", 36f, SoundCopyTheme.MutedGray, TextAlignmentOptions.MidlineLeft, FontStyles.Bold);
+            SetAnchors(intro.rectTransform, new Vector2(.04f, .62f), new Vector2(.96f, .70f));
 
-            BuildRuleRow(card.transform, 1, "ÉCOUTE", "Regarde la vidéo et mémorise le rythme.", .535f, SoundCopyTheme.Lime);
-            BuildRuleRow(card.transform, 2, "IMITE", "J1 puis J2 reproduisent exactement le son.", .405f, SoundCopyTheme.Coral);
-            BuildRuleRow(card.transform, 3, "ANALYSE", "L’IA compare les deux voix au son original.", .275f, SoundCopyTheme.Lime);
-            BuildRuleRow(card.transform, 4, "POINT", "La meilleure gagne. Joker : secoue pour x2 !", .145f, SoundCopyTheme.Coral);
+            BuildRuleRow(card.transform, 1, "LISTEN", "Watch the video and remember the rhythm.", new Vector2(.04f, .38f), new Vector2(.49f, .59f), SoundCopyTheme.Lime);
+            BuildRuleRow(card.transform, 2, "COPY IT", "P1 then P2 copy the sound into the mic.", new Vector2(.51f, .38f), new Vector2(.96f, .59f), SoundCopyTheme.Coral);
+            BuildRuleRow(card.transform, 3, "ANALYSIS", "The AI compares both voices with the original sound.", new Vector2(.04f, .15f), new Vector2(.49f, .36f), SoundCopyTheme.Lime);
+            BuildRuleRow(card.transform, 4, "POINT", "Best one wins. Spin fast for a x2 round!", new Vector2(.51f, .15f), new Vector2(.96f, .36f), SoundCopyTheme.Coral);
 
-            GameObject close = UIFactory.CreateRect("Close", card.transform, new Vector2(.09f, .035f), new Vector2(.91f, .115f), Vector2.zero, Vector2.zero);
-            closeRulesButton = UIFactory.CreateButton("CloseButton", close.transform, "C’EST PARTI  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink, 38f, out _);
+            GameObject close = UIFactory.CreateRect("Close", card.transform, new Vector2(.62f, .025f), new Vector2(.96f, .13f), Vector2.zero, Vector2.zero);
+            closeRulesButton = UIFactory.CreateButton("CloseButton", close.transform, "LET'S GO  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink, 40f, out TextMeshProUGUI closeLabel, false);
+            closeLabel.fontSize = 46f;
             rulesOverlay.SetActive(false);
         }
 
-        private static void BuildRuleRow(Transform parent, int index, string heading, string description, float y, Color accent)
+        private static void BuildRuleRow(Transform parent, int index, string heading, string description, Vector2 min, Vector2 max, Color accent)
         {
-            GameObject row = UIFactory.CreateRect("Rule" + index, parent, new Vector2(.08f, y), new Vector2(.92f, y + .105f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(row, new Color(.965f, .94f, .89f), 24f);
+            GameObject row = UIFactory.CreateRect("Rule" + index, parent, min, max, Vector2.zero, Vector2.zero);
+            UIFactory.AddRounded(row, new Color(.965f, .94f, .89f), 28f);
             UIFactory.AddNativeOutline(row, new Color(.25f, .20f, .24f, .28f), 2f);
-            GameObject number = UIFactory.CreateRect("Number", row.transform, new Vector2(.025f, .15f), new Vector2(.16f, .85f), Vector2.zero, Vector2.zero);
-            UIFactory.AddRounded(number, accent, 50f);
+            GameObject number = UIFactory.CreateRect("Number", row.transform, new Vector2(0f, .5f), new Vector2(0f, .5f), Vector2.zero, Vector2.zero);
+            RectTransform numberRt = number.GetComponent<RectTransform>();
+            numberRt.pivot = new Vector2(0f, .5f);
+            numberRt.anchoredPosition = new Vector2(24f, 0f);
+            numberRt.sizeDelta = new Vector2(110f, 110f);
+            UIFactory.AddRounded(number, accent, 55f);
             UIFactory.AddNativeOutline(number, SoundCopyTheme.Ink, 2f);
-            UIFactory.CreateText("Value", number.transform, index.ToString("00"), 32f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
-            TextMeshProUGUI headingText = UIFactory.CreateText("Heading", row.transform, heading, 35f, SoundCopyTheme.Ink, TextAlignmentOptions.BottomLeft, FontStyles.Bold);
-            headingText.rectTransform.anchorMin = new Vector2(.20f, .45f);
-            headingText.rectTransform.anchorMax = new Vector2(.95f, .88f);
-            headingText.rectTransform.offsetMin = Vector2.zero;
-            headingText.rectTransform.offsetMax = Vector2.zero;
-            TextMeshProUGUI body = UIFactory.CreateText("Body", row.transform, description, 24f, SoundCopyTheme.MutedGray, TextAlignmentOptions.TopLeft, FontStyles.Normal);
-            body.rectTransform.anchorMin = new Vector2(.20f, .08f);
-            body.rectTransform.anchorMax = new Vector2(.95f, .50f);
-            body.rectTransform.offsetMin = Vector2.zero;
-            body.rectTransform.offsetMax = Vector2.zero;
+            UIFactory.CreateText("Value", number.transform, index.ToString("00"), 44f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, FontStyles.Bold);
+            TextMeshProUGUI headingText = UIFactory.CreateText("Heading", row.transform, heading, 46f, SoundCopyTheme.Ink, TextAlignmentOptions.BottomLeft, FontStyles.Bold);
+            headingText.rectTransform.anchorMin = new Vector2(0f, .50f);
+            headingText.rectTransform.anchorMax = new Vector2(1f, .92f);
+            headingText.rectTransform.offsetMin = new Vector2(160f, 0f);
+            headingText.rectTransform.offsetMax = new Vector2(-20f, 0f);
+            TextMeshProUGUI body = UIFactory.CreateText("Body", row.transform, description, 32f, SoundCopyTheme.MutedGray, TextAlignmentOptions.TopLeft, FontStyles.Normal);
+            body.rectTransform.anchorMin = new Vector2(0f, .06f);
+            body.rectTransform.anchorMax = new Vector2(1f, .50f);
+            body.rectTransform.offsetMin = new Vector2(160f, 0f);
+            body.rectTransform.offsetMax = new Vector2(-20f, 0f);
+        }
+
+        private static void SetAnchors(RectTransform rt, Vector2 min, Vector2 max)
+        {
+            rt.anchorMin = min;
+            rt.anchorMax = max;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
         }
 
         private void ApplyFonts()
         {
             foreach (TextMeshProUGUI text in GetComponentsInChildren<TextMeshProUGUI>(true))
             {
-                bool display = text.name.StartsWith("Headline") || text.name == "LaunchLabel" || text.name.StartsWith("J1") || text.name.StartsWith("J2") || text.name == "RulesTitle";
+                bool display = text.name.StartsWith("Headline") || text.name == "LaunchLabel" || text.name.StartsWith("P1") || text.name.StartsWith("P2") || text.name == "RulesTitle";
                 if (display && displayFont != null) text.font = displayFont;
                 else if (bodyFont != null) text.font = bodyFont;
             }

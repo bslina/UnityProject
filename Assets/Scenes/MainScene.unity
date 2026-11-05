@@ -476,10 +476,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52c8e356366d9d74c90818bdeef072ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NewMonoBehaviourScript
-  homeJungleBackground: {fileID: -239198646216532941, guid: e287e2c0e1032754faec1f6f18db12f7, type: 3}
-  setupJungleBackground: {fileID: 3660291161723775162, guid: a141b26e57ea10144a40ccd94a3e6606, type: 3}
-  gameplayJungleBackground: {fileID: -9197318958878073562, guid: da29b3bbf26a7014093165cd0ea79360, type: 3}
-  resultJungleBackground: {fileID: 8875414223491944954, guid: 125d3e6dbde170a43ac3f6042ec85614, type: 3}
+  homeJungleBackground: {fileID: 21300000, guid: ead49a32059dbf3459a2d13263a9ddb9, type: 3}
+  setupJungleBackground: {fileID: 21300000, guid: 673cbeaec8b1135439c1936e3cae7036, type: 3}
+  gameplayJungleBackground: {fileID: 21300000, guid: 8502826f0504e9648acbf188c5c58da5, type: 3}
+  resultJungleBackground: {fileID: 21300000, guid: 673cbeaec8b1135439c1936e3cae7036, type: 3}
   imageEncoderModelAsset: {fileID: 5022602860645237092, guid: 103b5f3d08f4cdb46840dcb21b73de14, type: 3}
   missionReferences:
   - missionLabel: A BOTTLE

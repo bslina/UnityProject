@@ -76,7 +76,7 @@ Everything is laid out for **1920 × 1080 landscape**. The Canvas Scaler matches
    - `Display Name`, `Description`, `Icon` (card picture), `Music` (optional)
    - `Scene Name`: the exact scene file name without `.unity`
    - untick **Coming Soon**
-   - **Orientation**: *Portrait* for games held upright (Sound Copy, Photo Challenge); the menus stay landscape
+   - **Orientation**: *Landscape* for all current games (like the menus); *Portrait* is there for a future game held upright
    - **Hide Pause Button**: tick if the game has its own pause menu (Sound Copy)
 3. **Tools > Game UI > Sync Build Scene List**
 4. In their game code, report the end of a round:

@@ -49,9 +49,10 @@ namespace SoundCopy.Editor
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080f, 2400f);
+            // Landscape, like the rest of the game: always 1080 px tall, 1920+ px wide.
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = 1f;
 
             GameObject safeArea = new GameObject("SafeArea", typeof(RectTransform), typeof(SafeAreaFitter));
             safeArea.transform.SetParent(canvasObject.transform, false);
@@ -61,16 +62,10 @@ namespace SoundCopy.Editor
             safeRect.offsetMin = Vector2.zero;
             safeRect.offsetMax = Vector2.zero;
 
-            TMP_FontAsset displayFont = EnsureFontAsset("Assets/SoundCopy/Fonts/Anton-Regular.ttf", "Assets/SoundCopy/Fonts/Anton-Display.asset");
-            TMP_FontAsset bodyFont = EnsureFontAsset("Assets/SoundCopy/Fonts/BarlowCondensed-Bold.ttf", "Assets/SoundCopy/Fonts/BarlowCondensed-UI.asset");
+            LoadStyle(out TMP_FontAsset displayFont, out TMP_FontAsset bodyFont);
             Sprite homePoster = EnsureSprite("Assets/SoundCopy/Art/Home/battle_poster_background.png");
 
-            // Shake detection for the jokers (accelerometer; press S in the Editor).
-            ShakeDetector shake = managerObject.AddComponent<ShakeDetector>();
-
-            // Every screen uses these fonts (Anton for titles/buttons, Barlow Condensed for text).
-            MobileUI.DisplayFont = displayFont;
-            MobileUI.BodyFont = bodyFont;
+            ShakeDetector shake = null; // the shake joker was replaced by spinning the phone
 
             GameObject menuObject = CreateFullScreenPanel("MenuPanel", safeArea.transform);
             MenuPanel menu = menuObject.AddComponent<MenuPanel>();
@@ -111,13 +106,18 @@ namespace SoundCopy.Editor
             results.Initialize(manager);
             results.BuildUI();
 
+            SpinPanel spin = CreateFullScreenPanel("SpinPanel", safeArea.transform).AddComponent<SpinPanel>();
+            spin.Initialize(manager);
+            spin.BuildUI();
+
             PauseOverlay pause = CreateFullScreenPanel("PauseOverlay", safeArea.transform).AddComponent<PauseOverlay>();
             pause.Initialize(manager);
             pause.BuildUI();
             pause.SetAvailable(false);
 
             manager.Configure(menu, setup, round, video, handOver, recording, analysis, verdict, results, pause, aiJudge, shake);
-            foreach (Component panel in new Component[] { setup, round, video, handOver, recording, analysis, verdict, results })
+            manager.ConfigureSpin(spin);
+            foreach (Component panel in new Component[] { setup, round, video, handOver, recording, analysis, verdict, results, spin })
                 panel.gameObject.SetActive(false);
             menuObject.SetActive(true);
 
@@ -129,6 +129,101 @@ namespace SoundCopy.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("Sound Copy: Main scene built successfully at " + ScenePath);
+        }
+
+        // Fonts + pack sprites used by every generated screen.
+        private static void LoadStyle(out TMP_FontAsset displayFont, out TMP_FontAsset bodyFont)
+        {
+            // Same fonts as the Pocket Jungle menus (Starborn titles, Cute Dino text). Ons's Barlow is kept as a
+            // fallback so any letter missing from them still shows.
+            TMP_FontAsset barlowFont = EnsureFontAsset("Assets/SoundCopy/Fonts/BarlowCondensed-Bold.ttf", "Assets/SoundCopy/Fonts/BarlowCondensed-UI.asset");
+            displayFont = EnsureFontAsset("Assets/UI/Art/Fonts/starborn/Starborn.ttf", "Assets/SoundCopy/Fonts/Starborn-Display.asset", barlowFont)
+                ?? EnsureFontAsset("Assets/SoundCopy/Fonts/Anton-Regular.ttf", "Assets/SoundCopy/Fonts/Anton-Display.asset");
+            bodyFont = EnsureFontAsset("Assets/UI/Art/Fonts/cute_dino_2/Cute Dino.otf", "Assets/SoundCopy/Fonts/CuteDino-UI.asset", barlowFont)
+                ?? barlowFont;
+            LoadSkin();
+            MobileUI.DisplayFont = displayFont;
+            MobileUI.BodyFont = bodyFont;
+        }
+
+        // Texts that are replaced only if they still read exactly like the old generated text.
+        private static readonly string[][] TextUpdates =
+        {
+            new[] { "LISTEN TO THE SOUND  >", "SPIN THE PHONE  >", "RoundPanel" },
+            new[] { "Each player has <color=#FFF1B8>1 x2 joker</color>.\nYou choose the round to play it in!",
+                    "Before each round, <color=#FFF1B8>spin the phone</color>:\nit picks who goes first, and a fast spin makes it a x2 round!", null },
+            new[] { "Best one wins. Joker: shake for x2!", "Best one wins. Spin fast for a x2 round!", null },
+            new[] { "JOKER ON  \u00B7  x2", "x2 ROUND", null },
+            new[] { "Tap the mic when you're ready", "Raise the phone to your mouth to start\n(or tap the mic)", null },
+        };
+
+        [MenuItem("SoundCopy/Add Spin Screen (keeps your edits)")]
+        public static void AddSpinScreen()
+        {
+            if (EditorApplication.isPlaying)
+            {
+                Debug.LogError("Sound Copy: Exit Play Mode first.");
+                return;
+            }
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            Scene scene = SceneManager.GetActiveScene();
+            if (scene.path != ScenePath) scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+
+            GameManager manager = Object.FindAnyObjectByType<GameManager>(FindObjectsInactive.Include);
+            SafeAreaFitter safeArea = Object.FindAnyObjectByType<SafeAreaFitter>(FindObjectsInactive.Include);
+            if (manager == null || safeArea == null)
+            {
+                Debug.LogError("Sound Copy: GameManager or SafeArea not found in " + ScenePath + ".");
+                return;
+            }
+
+            var log = new List<string>();
+            SpinPanel spin = Object.FindAnyObjectByType<SpinPanel>(FindObjectsInactive.Include);
+            if (spin == null)
+            {
+                LoadStyle(out _, out _);
+                GameObject panel = CreateFullScreenPanel("SpinPanel", safeArea.transform);
+                // Below the pause overlay, so the pause window stays on top.
+                Transform pause = safeArea.transform.Find("PauseOverlay");
+                if (pause != null) panel.transform.SetSiblingIndex(pause.GetSiblingIndex());
+                spin = panel.AddComponent<SpinPanel>();
+                spin.Initialize(manager);
+                spin.BuildUI();
+                panel.SetActive(false);
+                Undo.RegisterCreatedObjectUndo(panel, "Add Spin Screen");
+                log.Add("added SpinPanel (under Canvas > SafeArea, hidden; turn it on to style it)");
+            }
+            Undo.RecordObject(manager, "Add Spin Screen");
+            manager.ConfigureSpin(spin);
+            EditorUtility.SetDirty(manager);
+
+            // The old joker cards on the round screen: hidden, not deleted.
+            foreach (Transform t in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if ((t.name == "Jokers" || t.name == "JokerLabel" || t.name == "JokerHint") && t.GetComponentInParent<RoundPanel>(true) != null && t.gameObject.activeSelf)
+                {
+                    Undo.RecordObject(t.gameObject, "Hide joker");
+                    t.gameObject.SetActive(false);
+                    log.Add("hid " + t.name);
+                }
+            }
+
+            foreach (TMP_Text text in Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                foreach (string[] update in TextUpdates)
+                {
+                    if (text.text != update[0]) continue;
+                    if (update[2] == "RoundPanel" && text.GetComponentInParent<RoundPanel>(true) == null) continue;
+                    Undo.RecordObject(text, "Update text");
+                    text.text = update[1];
+                    EditorUtility.SetDirty(text);
+                    log.Add("text \"" + update[0].Replace("\n", " ") + "\" -> \"" + update[1].Replace("\n", " ") + "\"");
+                }
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log("Sound Copy: spin screen ready. " + (log.Count == 0 ? "Nothing to change." : string.Join("; ", log)));
         }
 
         private static VideoClip[] LoadVideoClips(string folder)
@@ -207,7 +302,50 @@ namespace SoundCopy.Editor
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
-        private static TMP_FontAsset EnsureFontAsset(string fontPath, string assetPath)
+        // Sprites from the menus' 2D Casual UI pack (same art as the Pocket Jungle menus).
+        private const string PackSheet = "Assets/2D Casual UI/Sprite/GUI.png";
+        private const string PageBackgroundPath = "Assets/UI/Art/background/download (13).jpg";
+
+        private static void LoadSkin()
+        {
+            var pack = new Dictionary<string, Sprite>();
+            foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(PackSheet))
+                if (asset is Sprite sprite) pack[sprite.name] = sprite;
+            Sprite Pick(string name)
+            {
+                if (pack.TryGetValue(name, out Sprite sprite)) return sprite;
+                Debug.LogWarning("Sound Copy: sprite " + name + " not found in " + PackSheet + " (a plain shape is used instead).");
+                return null;
+            }
+
+            SoundCopySkin.Rounded = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            SoundCopySkin.Circle = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            SoundCopySkin.PageBackground = AssetDatabase.LoadAssetAtPath<Sprite>(PageBackgroundPath);
+            SoundCopySkin.Panel = Pick("GUI_28");        // framed window
+            SoundCopySkin.Button = Pick("GUI_11");       // green button, 9-sliced on all sides
+            SoundCopySkin.RoundButton = Pick("GUI_7");   // round green button
+            SoundCopySkin.Ribbon = Pick("GUI_68");       // title ribbon
+            SoundCopySkin.IconBack = Pick("GUI_55");     // arrow (flipped to point back)
+            SoundCopySkin.IconPause = Pick("GUI_34");
+            SoundCopySkin.IconTrophy = Pick("GUI_62");
+            SoundCopySkin.BarTrack = Pick("GUI_13");     // dark bar
+            if (SoundCopySkin.PageBackground == null) Debug.LogWarning("Sound Copy: background not found at " + PageBackgroundPath + " (import it as Sprite).");
+        }
+
+        private static TMP_FontAsset EnsureFontAsset(string fontPath, string assetPath, TMP_FontAsset fallback = null)
+        {
+            TMP_FontAsset result = CreateOrLoadFontAsset(fontPath, assetPath);
+            if (result != null && fallback != null && result != fallback)
+            {
+                if (result.fallbackFontAssetTable == null) result.fallbackFontAssetTable = new List<TMP_FontAsset>();
+                if (!result.fallbackFontAssetTable.Contains(fallback)) result.fallbackFontAssetTable.Add(fallback);
+                EditorUtility.SetDirty(result);
+                AssetDatabase.SaveAssets();
+            }
+            return result;
+        }
+
+        private static TMP_FontAsset CreateOrLoadFontAsset(string fontPath, string assetPath)
         {
             TMP_FontAsset existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
             if (existing != null)

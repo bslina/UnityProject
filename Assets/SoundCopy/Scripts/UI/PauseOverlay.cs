@@ -94,39 +94,36 @@ namespace SoundCopy.UI
             pauseButtonObject = UIFactory.CreateRect("PauseButton", transform, new Vector2(1f, 1f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
             var pbRt = (RectTransform)pauseButtonObject.transform;
             pbRt.pivot = new Vector2(1f, 1f);
-            pbRt.anchoredPosition = new Vector2(-32f, -34f);
-            pbRt.sizeDelta = new Vector2(130f, 130f);
-            var pbGraphic = UIFactory.AddRounded(pauseButtonObject, SoundCopyTheme.Cream, 65f, true);
-            UIFactory.AddNativeOutline(pauseButtonObject, SoundCopyTheme.Ink, 4f);
-            pauseButton = pauseButtonObject.AddComponent<Button>();
-            pauseButton.targetGraphic = pbGraphic;
-            for (int i = 0; i < 2; i++)
-            {
-                var bar = UIFactory.CreateRect("Bar" + i, pauseButtonObject.transform, new Vector2(i == 0 ? 0.33f : 0.55f, 0.3f), new Vector2(i == 0 ? 0.45f : 0.67f, 0.7f), Vector2.zero, Vector2.zero);
-                UIFactory.AddRounded(bar, SoundCopyTheme.Ink, 6f);
-            }
+            pbRt.anchoredPosition = new Vector2(-32f, -24f);
+            pbRt.sizeDelta = new Vector2(116f, 116f);
+            pauseButton = MobileUI.RoundButton(pauseButtonObject.transform, "Button", SoundCopySkin.IconPause, "II");
 
             modal = UIFactory.CreateRect("PauseModal", transform, Vector2.zero, Vector2.one, new Vector2(-200f, -200f), new Vector2(200f, 200f));
             UIFactory.AddRounded(modal, new Color(0.04f, 0.02f, 0.06f, 0.85f), 0f, true);
-            var content = UIFactory.CreateRect("Content", modal.transform, Vector2.zero, Vector2.one, new Vector2(200f, 200f), new Vector2(-200f, -200f));
 
-            var card = MobileUI.Fill(content.transform, "Card", 380f, 300f, 48f);
-            MobileUI.Card(card.gameObject, SoundCopyTheme.Cream, 56f);
-            var title = MobileUI.Row(card, "Title", 60f, 130f);
+            // Centred landscape window: resume on top, three choices in a row below.
+            var card = UIFactory.CreateRect("Card", modal.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            var cardRt = (RectTransform)card.transform;
+            cardRt.sizeDelta = new Vector2(1500f, 820f);
+            card.AddComponent<GameUI.FitToScreen>();
+            MobileUI.Panel(card, true);
+
+            var title = MobileUI.Row(card.transform, "Title", 40f, 130f);
             MobileUI.Text(title, "Text", "PAUSE", 120f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
-            var sub = MobileUI.Row(card, "Subtitle", 200f, 60f);
-            MobileUI.Text(sub, "Text", "Le micro est coupé, les scores sont gardés.", 36f, SoundCopyTheme.MutedGray, TextAlignmentOptions.Center);
-            var score = MobileUI.Row(card, "Score", 290f, 110f);
+            var sub = MobileUI.Row(card.transform, "Subtitle", 175f, 56f);
+            MobileUI.Text(sub, "Text", "The mic is off, scores are kept.", 36f, SoundCopyTheme.MutedGray, TextAlignmentOptions.Center);
+            var score = MobileUI.Row(card.transform, "Score", 250f, 110f, 200f);
             MobileUI.Card(score.gameObject, new Color(0.95f, 0.92f, 0.86f), 30f, false);
-            scoreText = MobileUI.Text(score, "Text", "J1  0 – 0  J2", 52f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
+            scoreText = MobileUI.Text(score, "Text", "P1  0 – 0  P2", 54f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
             scoreText.enableAutoSizing = true;
             scoreText.fontSizeMin = 34f;
-            scoreText.fontSizeMax = 52f;
+            scoreText.fontSizeMax = 54f;
 
-            resumeButton = MobileUI.BigButton(MobileUI.Row(card, "Resume", 450f, 170f), "ResumeButton", "REPRENDRE  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink);
-            restartButton = MobileUI.BigButton(MobileUI.Row(card, "Restart", 660f, 140f), "RestartButton", "RECOMMENCER LE MATCH", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 44f);
-            quitButton = MobileUI.BigButton(MobileUI.Row(card, "Quit", 840f, 140f), "QuitButton", "QUITTER LE MATCH", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 44f);
-            exitButton = MobileUI.BigButton(MobileUI.Row(card, "Exit", 1020f, 140f), "ExitButton", "MENU DES JEUX", SoundCopyTheme.Ink, SoundCopyTheme.Cream, 44f);
+            resumeButton = MobileUI.BigButton(MobileUI.Row(card.transform, "Resume", 400f, 160f, 200f), "ResumeButton", "RESUME  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink);
+            var choices = MobileUI.Row(card.transform, "Choices", 610f, 140f);
+            restartButton = MobileUI.BigButton(MobileUI.Cell(choices, "Restart", 0, 3, 30f), "RestartButton", "RESTART", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 42f);
+            quitButton = MobileUI.BigButton(MobileUI.Cell(choices, "Quit", 1, 3, 30f), "QuitButton", "QUIT MATCH", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 42f);
+            exitButton = MobileUI.BigButton(MobileUI.Cell(choices, "Exit", 2, 3, 30f), "ExitButton", "GAMES MENU", SoundCopyTheme.Ink, SoundCopyTheme.Cream, 42f);
             modal.SetActive(false);
         }
     }

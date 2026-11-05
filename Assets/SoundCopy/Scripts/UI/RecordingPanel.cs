@@ -8,24 +8,35 @@ using UnityEngine.Android;
 
 namespace SoundCopy.UI
 {
-    // One player's imitation: tap the mic -> 3-2-1 -> record for the length of the video
-    // (live level meter + progress bar) -> listen back, redo once, or validate.
+    // One player's imitation: RAISE THE PHONE TO YOUR MOUTH (or tap the mic) -> 3-2-1 -> record for the
+    // length of the video (live level meter + progress bar) -> listen back, redo once, or validate.
+    // Lowering the phone during the 3-2-1 cancels the take. In the Editor, hold R to "raise" the phone.
     public sealed class RecordingPanel : MonoBehaviour
     {
         private const int SampleRate = 44100;
         private const int MeterBars = 28;
 
+        [Header("Raise to record (accelerometer)")]
+        [Tooltip("Start recording when the phone is raised like a microphone.")]
+        [SerializeField] private bool raiseToRecord = true;
+        [Tooltip("How upright counts as 'raised' (0 = flat, 1 = straight up).")]
+        [SerializeField, Range(0.3f, 0.95f)] private float raisedLevel = 0.6f;
+        [Tooltip("Below this the phone counts as 'down' (reading the screen / on the table).")]
+        [SerializeField, Range(0.05f, 0.8f)] private float loweredLevel = 0.4f;
+        [Tooltip("The pose must hold this long (seconds) before it counts.")]
+        [SerializeField] private float poseHoldTime = 0.3f;
+
         [SerializeField] private GameManager gameManager;
         [SerializeField] private TextMeshProUGUI titleText;
         [SerializeField] private TextMeshProUGUI playerText;
-        [SerializeField] private RoundedRectGraphic micGraphic;
+        [SerializeField] private Image micGraphic;
         [SerializeField] private Button micButton;
         [SerializeField] private TextMeshProUGUI countdownText;
         [SerializeField] private GameObject micIcon;
         [SerializeField] private RectTransform[] meterBars = new RectTransform[MeterBars];
-        [SerializeField] private RoundedRectGraphic[] meterGraphics = new RoundedRectGraphic[MeterBars];
+        [SerializeField] private Image[] meterGraphics = new Image[MeterBars];
         [SerializeField] private RectTransform progressFill;
-        [SerializeField] private RoundedRectGraphic progressGraphic;
+        [SerializeField] private Image progressGraphic;
         [SerializeField] private TextMeshProUGUI timerText;
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private GameObject afterRow;
@@ -47,8 +58,42 @@ namespace SoundCopy.UI
         private float[] levelBuffer = new float[1024];
         private float levelTimer;
         private float smoothLevel;
+        private bool countingDown;
+        private bool done;
+        private bool armed;          // the phone was down at least once since the screen opened
+        private float raisedSince = -1f;
+        private float loweredSince = -1f;
+        private bool cancelRequested;
+
+        bool RaiseAvailable => raiseToRecord && (PhoneMotion.HasAccelerometer || Application.isEditor);
 
         public void Initialize(GameManager manager) => gameManager = manager;
+
+        private void OnEnable() => PhoneMotion.Warm();
+
+        // Watches the phone's pose: raising it starts the take, lowering it during 3-2-1 cancels it.
+        private void Update()
+        {
+            if (!RaiseAvailable || done) return;
+            bool keyRaise = UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.rKey.isPressed;
+            float upright = PhoneMotion.HasAccelerometer ? PhoneMotion.Upright : 0f;
+            bool raised = keyRaise || (PhoneMotion.HasAccelerometer && upright >= raisedLevel);
+            bool lowered = !keyRaise && (!PhoneMotion.HasAccelerometer || upright <= loweredLevel);
+            float now = Time.unscaledTime;
+
+            raisedSince = raised ? (raisedSince < 0f ? now : raisedSince) : -1f;
+            loweredSince = lowered ? (loweredSince < 0f ? now : loweredSince) : -1f;
+
+            if (!busy)
+            {
+                if (lowered) armed = true;
+                if (armed && raisedSince >= 0f && now - raisedSince >= poseHoldTime) BeginRecording();
+            }
+            else if (countingDown && loweredSince >= 0f && now - loweredSince >= poseHoldTime + 0.1f)
+            {
+                cancelRequested = true; // lowered during 3-2-1: cancel this take
+            }
+        }
 
         private void Awake()
         {
@@ -73,16 +118,19 @@ namespace SoundCopy.UI
             StopMicrophone();
             playerIndex = index;
             microphoneClip = null;
-            busy = recording = redoUsed = false;
+            busy = recording = redoUsed = done = countingDown = cancelRequested = false;
+            // Already holding it up when the screen opens? It must come down first, so it doesn't start by itself.
+            armed = !PhoneMotion.HasAccelerometer || PhoneMotion.Upright <= loweredLevel;
             recordingDuration = gameManager != null ? Mathf.Max(1f, gameManager.CurrentChallengeDuration) : 4f;
             Color color = MobileUI.PlayerColor(index);
 
             if (titleText != null) titleText.text = "IMITATION";
-            if (playerText != null) { playerText.text = "À TOI, " + playerName.ToUpperInvariant() + " !"; playerText.color = color; }
+            if (playerText != null) { playerText.text = "YOUR TURN, " + playerName.ToUpperInvariant() + " !"; playerText.color = color; }
             if (micGraphic != null) micGraphic.color = color;
             if (progressGraphic != null) progressGraphic.color = color;
             for (int i = 0; i < meterGraphics.Length; i++) if (meterGraphics[i] != null) meterGraphics[i].color = color;
-            if (validateLabel != null) validateLabel.text = index == 1 ? "JOUEUR SUIVANT  >" : "ANALYSER AVEC L'IA  >";
+            bool last = gameManager != null && gameManager.Recorded(3 - index);
+            if (validateLabel != null) validateLabel.text = last ? "LET THE AI JUDGE  >" : "NEXT PLAYER  >";
             ResetMeter();
             SetProgress(0f);
             ShowReady();
@@ -92,8 +140,12 @@ namespace SoundCopy.UI
         {
             if (micIcon != null) micIcon.SetActive(true);
             if (countdownText != null) countdownText.gameObject.SetActive(false);
+            done = false;
             if (timerText != null) timerText.text = recordingDuration.ToString("0.0") + " s";
-            if (statusText != null) statusText.text = "Appuie sur le micro quand tu es prêt";
+            if (statusText != null)
+                statusText.text = RaiseAvailable
+                    ? "Raise the phone to your mouth to start\n(or tap the mic)"
+                    : "Tap the mic when you're ready";
             if (micButton != null) micButton.interactable = true;
             if (afterRow != null) afterRow.SetActive(false);
             if (validateButton != null) validateButton.gameObject.SetActive(false);
@@ -102,14 +154,15 @@ namespace SoundCopy.UI
 
         void ShowDone()
         {
+            done = true;
             if (micIcon != null) micIcon.SetActive(true);
             if (countdownText != null) countdownText.gameObject.SetActive(false);
-            if (timerText != null) timerText.text = "OK !";
-            if (statusText != null) statusText.text = "Imitation enregistrée. Écoute-la ou valide.";
+            if (timerText != null) timerText.text = "OK!";
+            if (statusText != null) statusText.text = "Imitation saved. Play it back or confirm.";
             if (micButton != null) micButton.interactable = false;
             if (afterRow != null) afterRow.SetActive(true);
             if (redoButton != null) redoButton.interactable = !redoUsed;
-            if (redoLabel != null) redoLabel.text = redoUsed ? "DÉJÀ REFAIT" : "REFAIRE";
+            if (redoLabel != null) redoLabel.text = redoUsed ? "ALREADY REDONE" : "REDO";
             if (validateButton != null) validateButton.gameObject.SetActive(true);
             if (backButton != null) backButton.gameObject.SetActive(false);
         }
@@ -127,28 +180,30 @@ namespace SoundCopy.UI
             micButton.interactable = false;
             if (backButton != null) backButton.gameObject.SetActive(false);
 
-            statusText.text = "Autorisation du micro…";
+            statusText.text = "Asking for the mic…";
             bool allowed = false;
             yield return RequestMicrophone(granted => allowed = granted);
             if (!allowed)
             {
-                statusText.text = "Accès au micro refusé (Paramètres > Applis)";
+                statusText.text = "Mic access denied (Settings > Apps)";
                 busy = false;
                 micButton.interactable = true;
                 yield break;
             }
             if (Microphone.devices == null || Microphone.devices.Length == 0)
             {
-                statusText.text = "Aucun micro détecté";
+                statusText.text = "No microphone found";
                 busy = false;
                 micButton.interactable = true;
                 yield break;
             }
 
-            // 3 - 2 - 1
+            // 3 - 2 - 1 (felt as buzzes too, since the screen is near your face). Lowering the phone cancels.
             micIcon.SetActive(false);
             countdownText.gameObject.SetActive(true);
-            statusText.text = "Prépare-toi…";
+            statusText.text = "Get ready…";
+            countingDown = true;
+            cancelRequested = false;
             for (int n = 3; n >= 1; n--)
             {
                 countdownText.text = n.ToString();
@@ -156,12 +211,23 @@ namespace SoundCopy.UI
                 float t = 0f;
                 while (t < 1f)
                 {
+                    if (cancelRequested)
+                    {
+                        countingDown = false;
+                        countdownText.rectTransform.localScale = Vector3.one;
+                        busy = false;
+                        armed = true;
+                        ShowReady();
+                        statusText.text = "Lowered too early: raise the phone again";
+                        yield break;
+                    }
                     t += Time.unscaledDeltaTime;
                     float pop = 1f + 0.25f * Mathf.Max(0f, 1f - t * 4f);
                     countdownText.rectTransform.localScale = new Vector3(pop, pop, 1f);
                     yield return null;
                 }
             }
+            countingDown = false;
             countdownText.rectTransform.localScale = Vector3.one;
             countdownText.text = "GO !";
             Haptics.Pulse(120, 220);
@@ -170,13 +236,13 @@ namespace SoundCopy.UI
             microphoneClip = Microphone.Start(null, false, bufferSeconds, SampleRate);
             if (microphoneClip == null)
             {
-                statusText.text = "Impossible de démarrer le micro";
+                statusText.text = "Couldn't start the mic";
                 busy = false;
                 ShowReady();
                 yield break;
             }
             recording = true;
-            statusText.text = "ENREGISTREMENT…  IMITE LE SON !";
+            statusText.text = "RECORDING…  COPY THE SOUND!";
             float elapsed = 0f;
             while (elapsed < recordingDuration)
             {
@@ -207,7 +273,7 @@ namespace SoundCopy.UI
             if (gameManager != null && gameManager.StoreRecording(playerIndex, microphoneClip)) ShowDone();
             else
             {
-                statusText.text = "Enregistrement impossible, réessaie";
+                statusText.text = "Recording failed, try again";
                 ShowReady();
             }
         }
@@ -298,8 +364,8 @@ namespace SoundCopy.UI
             if (playback != null) playback.Stop();
             ResetMeter();
             SetProgress(0f);
-            ShowReady();
-            BeginRecording();
+            armed = !PhoneMotion.HasAccelerometer || PhoneMotion.Upright <= loweredLevel;
+            ShowReady(); // raise the phone again (or tap the mic) for the new take
         }
 
         void Validate()
@@ -321,15 +387,10 @@ namespace SoundCopy.UI
             if (playback == null) playback = gameObject.AddComponent<AudioSource>();
             playback.playOnAwake = false;
 
-            var player = MobileUI.Row(page, "Player", 190f, 90f);
-            playerText = MobileUI.Text(player, "Text", "À TOI !", 64f, SoundCopyTheme.Lime, TextAlignmentOptions.Center, true);
-            playerText.enableAutoSizing = true;
-            playerText.fontSizeMin = 40f;
-            playerText.fontSizeMax = 64f;
-
-            // Big round mic button.
-            var mic = MobileUI.Row(page, "MicButton", 310f, 540f, 270f);
-            micGraphic = UIFactory.AddRounded(mic.gameObject, SoundCopyTheme.Lime, 270f, true);
+            // Left: big round mic button.
+            const float micSize = 520f;
+            var mic = MobileUI.TopLeft(page, "MicButton", 150f, 190f, micSize, micSize);
+            micGraphic = UIFactory.AddRounded(mic.gameObject, SoundCopyTheme.Lime, micSize * 0.5f, true);
             UIFactory.AddNativeOutline(mic.gameObject, SoundCopyTheme.Cream, 6f);
             var micShadow = mic.gameObject.AddComponent<Shadow>();
             micShadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
@@ -348,8 +409,15 @@ namespace SoundCopy.UI
             countdownText = MobileUI.Text(mic, "Countdown", "3", 260f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
             countdownText.gameObject.SetActive(false);
 
-            // Live level meter.
-            var meter = MobileUI.Row(page, "LevelMeter", 900f, 200f);
+            // Right: player, live level meter, progress, time and status.
+            var side = UIFactory.CreateRect("Side", page, Vector2.zero, Vector2.one, new Vector2(150f + micSize + 100f, 0f), new Vector2(-MobileUI.Side, 0f));
+            var player = MobileUI.Row(side.transform, "Player", 170f, 90f, 0f);
+            playerText = MobileUI.Text(player, "Text", "YOUR TURN!", 64f, SoundCopyTheme.Lime, TextAlignmentOptions.MidlineLeft, true);
+            playerText.enableAutoSizing = true;
+            playerText.fontSizeMin = 40f;
+            playerText.fontSizeMax = 64f;
+
+            var meter = MobileUI.Row(side.transform, "LevelMeter", 290f, 200f, 0f);
             for (int i = 0; i < MeterBars; i++)
             {
                 float w = 1f / MeterBars;
@@ -360,28 +428,32 @@ namespace SoundCopy.UI
                 meterBars[i].localScale = new Vector3(1f, 0.08f, 1f);
             }
 
-            // Progress bar + time left.
-            var track = MobileUI.Row(page, "Progress", 1140f, 40f);
-            UIFactory.AddRounded(track.gameObject, new Color(1f, 1f, 1f, 0.15f), 20f);
+            var track = MobileUI.Row(side.transform, "Progress", 520f, 36f, 0f);
+            if (SoundCopySkin.BarTrack != null) UIFactory.AddSprite(track.gameObject, SoundCopySkin.BarTrack, Color.white);
+            else UIFactory.AddRounded(track.gameObject, new Color(1f, 1f, 1f, 0.15f), 18f);
             var fill = UIFactory.CreateRect("Fill", track, Vector2.zero, new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
-            progressGraphic = UIFactory.AddRounded(fill, SoundCopyTheme.Lime, 20f);
+            progressGraphic = UIFactory.AddRounded(fill, SoundCopyTheme.Lime, 18f);
             progressFill = (RectTransform)fill.transform;
 
-            var timer = MobileUI.Row(page, "Timer", 1200f, 120f);
-            timerText = MobileUI.Text(timer, "Text", "4.0 s", 96f, SoundCopyTheme.Cream, TextAlignmentOptions.Center, true);
-            var status = MobileUI.Row(page, "Status", 1330f, 80f);
-            statusText = MobileUI.Text(status, "Text", "Appuie sur le micro quand tu es prêt", 40f, new Color(1f, 1f, 1f, 0.8f), TextAlignmentOptions.Center);
+            var timer = MobileUI.Row(side.transform, "Timer", 575f, 110f, 0f);
+            timerText = MobileUI.Text(timer, "Text", "4.0 s", 92f, SoundCopyTheme.Cream, TextAlignmentOptions.MidlineLeft, true);
+            var status = MobileUI.Row(side.transform, "Status", 690f, 80f, 0f);
+            statusText = MobileUI.Text(status, "Text", "Tap the mic when you're ready", 38f, new Color(1f, 1f, 1f, 0.8f), TextAlignmentOptions.TopLeft);
             statusText.textWrappingMode = TextWrappingModes.Normal;
 
-            // After recording: listen back / redo, then validate.
-            var after = MobileUI.BottomRow(page, "AfterActions", MobileUI.BottomMargin + MobileUI.ButtonHeight + 30f, 140f);
-            afterRow = after.gameObject;
-            listenButton = MobileUI.BigButton(MobileUI.Cell(after, "Listen", 0, 2, 30f), "ListenButton", "RÉÉCOUTER", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 44f);
-            redoButton = MobileUI.BigButton(MobileUI.Cell(after, "Redo", 1, 2, 30f), "RedoButton", "REFAIRE", SoundCopyTheme.Cream, SoundCopyTheme.Ink, out redoLabel, 44f);
+            // Bottom: listen back / redo (left of the main button), validate (bottom-right).
+            var after = UIFactory.CreateRect("AfterActions", page, new Vector2(0f, 0f), new Vector2(1f, 0f), Vector2.zero, Vector2.zero);
+            var afterRt = (RectTransform)after.transform;
+            afterRt.pivot = new Vector2(0.5f, 0f);
+            afterRt.offsetMin = new Vector2(150f + micSize + 100f, MobileUI.BottomMargin);
+            afterRt.offsetMax = new Vector2(-(MobileUI.Side + MobileUI.ButtonWidth + 30f), MobileUI.BottomMargin + MobileUI.ButtonHeight);
+            afterRow = after;
+            listenButton = MobileUI.BigButton(MobileUI.Cell(afterRt, "Listen", 0, 2, 24f), "ListenButton", "PLAY BACK", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 40f);
+            redoButton = MobileUI.BigButton(MobileUI.Cell(afterRt, "Redo", 1, 2, 24f), "RedoButton", "REDO", SoundCopyTheme.Cream, SoundCopyTheme.Ink, out redoLabel, 40f);
             afterRow.SetActive(false);
 
-            var validate = MobileUI.BottomRow(page, "ValidateAction", MobileUI.BottomMargin, MobileUI.ButtonHeight);
-            validateButton = MobileUI.BigButton(validate, "ValidateButton", "JOUEUR SUIVANT  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink, out validateLabel);
+            var validate = MobileUI.BottomRight(page, "ValidateAction");
+            validateButton = MobileUI.BigButton(validate, "ValidateButton", "NEXT PLAYER  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink, out validateLabel);
             validateButton.gameObject.SetActive(false);
         }
     }

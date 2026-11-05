@@ -25,14 +25,14 @@ namespace SoundCopy.AI
             AudioClip original = FindReference(referenceId);
             if (yamNetModel == null || original == null || player1 == null || player2 == null)
             {
-                result.Error = yamNetModel == null ? "Modèle YAMNet absent." : original == null ? "Référence audio absente pour " + referenceId + "." : "Un enregistrement joueur est absent.";
+                result.Error = yamNetModel == null ? "YAMNet model missing." : original == null ? "No reference audio for " + referenceId + "." : "A player recording is missing.";
                 complete?.Invoke(result);
                 yield break;
             }
 
             if (runner == null)
             {
-                progress?.Invoke("Initialisation de YAMNet…");
+                progress?.Invoke("Starting YAMNet…");
                 try { runner = new YamNetRunner(yamNetModel); }
                 catch (Exception exception) { result.Error = exception.Message; complete?.Invoke(result); yield break; }
                 yield return null;
@@ -43,13 +43,13 @@ namespace SoundCopy.AI
             float[] firstSamples = AudioFeatureExtractor.ReadMono16K(player1);
             float[] secondSamples = AudioFeatureExtractor.ReadMono16K(player2);
 
-            yield return ExtractSignature(originalSamples, "Analyse du son original…", progress, value => originalNeural = value);
-            yield return ExtractSignature(firstSamples, "Analyse de " + nameForPlayer(1) + "…", progress, value => firstNeural = value);
-            yield return ExtractSignature(secondSamples, "Analyse de " + nameForPlayer(2) + "…", progress, value => secondNeural = value);
+            yield return ExtractSignature(originalSamples, "Analysing the original sound…", progress, value => originalNeural = value);
+            yield return ExtractSignature(firstSamples, "Analysing " + nameForPlayer(1) + "…", progress, value => firstNeural = value);
+            yield return ExtractSignature(secondSamples, "Analysing " + nameForPlayer(2) + "…", progress, value => secondNeural = value);
 
             if (originalNeural == null || firstNeural == null || secondNeural == null)
             {
-                result.Error = "L’analyse YAMNet n’a pas produit de résultat.";
+                result.Error = "The YAMNet analysis gave no result.";
                 complete?.Invoke(result);
                 yield break;
             }
@@ -75,7 +75,7 @@ namespace SoundCopy.AI
             else if (result.Player1TooQuiet) result.Winner = 2;
             else if (result.Player2TooQuiet) result.Winner = 1;
             else result.Winner = Mathf.Abs(difference) < 3f ? 0 : difference > 0f ? 1 : 2;
-            progress?.Invoke("Verdict prêt !");
+            progress?.Invoke("Verdict ready!");
             complete?.Invoke(result);
         }
 
@@ -108,7 +108,7 @@ namespace SoundCopy.AI
             return null;
         }
 
-        private string nameForPlayer(int player) => player == 1 ? "Joueur 1" : "Joueur 2";
+        private string nameForPlayer(int player) => player == 1 ? "Player 1" : "Player 2";
         private void OnDestroy() { runner?.Dispose(); runner = null; }
     }
 }

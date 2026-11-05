@@ -14,9 +14,10 @@ namespace SoundCopy
         public bool player2TooQuiet;
         // 0 = tie, 1 or 2 = round winner.
         public int winner;
-        public bool player1Joker;
-        public bool player2Joker;
-        // Points given to the winner this round (1, or 2 with a joker).
+        // Spin the phone: who imitated first, and whether the spin made it a x2 round.
+        public int firstPlayer = 1;
+        public bool doubled;
+        // Points given to the winner this round (1, or 2 on a x2 round).
         public int points;
     }
 }

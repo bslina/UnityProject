@@ -22,14 +22,30 @@ namespace SoundCopy.UI
             return go;
         }
 
-        public static RoundedRectGraphic AddRounded(GameObject target, Color color, float radius, bool raycast = false)
+        // A coloured rounded shape as a normal UI Image (so any sprite can be dragged onto it later).
+        // radius >= 55 gives a circle; smaller values a rounded rectangle with roughly that corner size.
+        public static Image AddRounded(GameObject target, Color color, float radius, bool raycast = false)
         {
-            if (target.GetComponent<CanvasRenderer>() == null) target.AddComponent<CanvasRenderer>();
-            RoundedRectGraphic graphic = target.AddComponent<RoundedRectGraphic>();
-            graphic.color = color;
-            graphic.CornerRadius = radius;
-            graphic.raycastTarget = raycast;
-            return graphic;
+            bool circle = radius >= 55f;
+            Image image = AddSprite(target, circle ? SoundCopySkin.Circle : SoundCopySkin.Rounded, color, raycast);
+            // The built-in rounded sprite has ~10 px corners: scale them to the wanted radius.
+            if (!circle && image.type == Image.Type.Sliced) image.pixelsPerUnitMultiplier = Mathf.Clamp(10f / Mathf.Max(radius, 1f), 0.1f, 1f);
+            return image;
+        }
+
+        public static Image AddCircle(GameObject target, Color color, bool raycast = false)
+            => AddSprite(target, SoundCopySkin.Circle, color, raycast);
+
+        // Image with a given sprite; 9-sliced automatically when the sprite has borders.
+        public static Image AddSprite(GameObject target, Sprite sprite, Color color, bool raycast = false)
+        {
+            Image image = target.GetComponent<Image>();
+            if (image == null) image = target.AddComponent<Image>();
+            image.sprite = sprite;
+            image.type = sprite != null && sprite.border != Vector4.zero ? Image.Type.Sliced : Image.Type.Simple;
+            image.color = color;
+            image.raycastTarget = raycast;
+            return image;
         }
 
         public static TextMeshProUGUI CreateText(string name, Transform parent, string value, float size, Color color,
@@ -54,15 +70,16 @@ namespace SoundCopy.UI
             float radius, out TextMeshProUGUI labelText, bool showArrow = true)
         {
             GameObject surface = CreateRect(name, parent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            RoundedRectGraphic graphic = AddRounded(surface, surfaceColor, radius, true);
-            Outline outline = surface.AddComponent<Outline>();
-            outline.effectColor = SoundCopyTheme.Ink;
-            outline.effectDistance = new Vector2(3f, -3f);
-            outline.useGraphicAlpha = true;
-            Shadow shadow = surface.AddComponent<Shadow>();
-            shadow.effectColor = new Color(SoundCopyTheme.Ink.r, SoundCopyTheme.Ink.g, SoundCopyTheme.Ink.b, 1f);
-            shadow.effectDistance = new Vector2(0f, -10f);
-            shadow.useGraphicAlpha = true;
+            Image graphic = SoundCopySkin.Button != null
+                ? AddSprite(surface, SoundCopySkin.Button, Color.white, true)
+                : AddRounded(surface, surfaceColor, radius, true);
+            if (SoundCopySkin.Button == null)
+            {
+                Outline outline = surface.AddComponent<Outline>();
+                outline.effectColor = SoundCopyTheme.Ink;
+                outline.effectDistance = new Vector2(3f, -3f);
+                outline.useGraphicAlpha = true;
+            }
             Button button = surface.AddComponent<Button>();
             button.targetGraphic = graphic;
             button.transition = Selectable.Transition.ColorTint;
@@ -98,7 +115,7 @@ namespace SoundCopy.UI
         public static TMP_InputField CreateInputField(string name, Transform parent, string placeholderValue, Vector2 anchorMin, Vector2 anchorMax)
         {
             GameObject root = CreateRect(name, parent, anchorMin, anchorMax, Vector2.zero, Vector2.zero);
-            RoundedRectGraphic background = AddRounded(root, SoundCopyTheme.Cream, 22f, true);
+            Image background = AddRounded(root, SoundCopyTheme.Cream, 22f, true);
             AddNativeOutline(root, new Color(0.55f, 0.5f, 0.48f, 0.7f), 2f);
             TMP_InputField input = root.AddComponent<TMP_InputField>();
             input.targetGraphic = background;

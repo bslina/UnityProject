@@ -36,7 +36,7 @@ MonoBehaviour:
     icon: {fileID: 0}
     music: {fileID: 0}
     comingSoon: 0
-    orientation: 1
+    orientation: 0
     hidePauseButton: 1
   - id: photo_challenge
     displayName: Photo Challenge
@@ -45,7 +45,7 @@ MonoBehaviour:
     icon: {fileID: 0}
     music: {fileID: 0}
     comingSoon: 0
-    orientation: 1
+    orientation: 0
     hidePauseButton: 0
   - id: minigame_4
     displayName: Mini Game 4

@@ -1,12 +1,22 @@
 using System.Collections;
 using System.Collections.Generic;
 using System;
+using GameUI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Unity.InferenceEngine;
+#if UNITY_ANDROID && !UNITY_EDITOR
+using UnityEngine.Android;
+#endif
 
+// Photo Challenge: two players take turns finding an object and photographing it.
+// MobileCLIP compares the photo with the mission's reference image; a close enough match scores a point.
+//
+// Layout: landscape (canvas 1920 x 1080, matched on height). The whole UI is built in code at Start.
+// Inside Pocket Jungle: "Retour aux jeux" goes back to the level menu and "Continuer" on the
+// result screen opens the shared Win screen (MiniGameBridge). The shared pause stops the turn timer.
 public class PhotoChallengeGame : MonoBehaviour
 {
     private Canvas canvas;
@@ -41,8 +51,13 @@ public class PhotoChallengeGame : MonoBehaviour
     private TMP_Text timerText;
     private TMP_Text resultText;
     private RawImage cameraPreview;
+    private RectTransform cameraArea;
     private RawImage referencePreview;
+    private AspectRatioFitter referenceFitter;
     private TMP_Text setupStatusText;
+    private TMP_Text mainButtonLabel;
+    private Image mainButtonFace;
+    private GameObject continueButton;
     private WebCamTexture webcamTexture;
     private Texture2D capturedPhoto;
 
@@ -69,149 +84,26 @@ public class PhotoChallengeGame : MonoBehaviour
     private string currentMission;
     private const int SimilarityImageSize = 256;
 
-    private bool photoCaptured;
-
     [Header("Turn Timer")]
     [SerializeField, Min(1f)] private float secondsPerTurn = 10f;
     private float turnTimeRemaining;
     private bool turnTimerRunning;
     private bool turnResolved;
+    private bool waitingForReady;   // the next player must take the phone and tap "Je suis prêt"
     private int lastDisplayedSeconds = -1;
 
-    private readonly string[] players = { "Player 1", "Player 2" };
+    private readonly string[] players = { "Joueur 1", "Joueur 2" };
     private readonly int[] scores = { 0, 0 };
 
-    private IEnumerator InitializeCamera()
+    // French names shown for the mission labels set in the Inspector (the labels themselves stay the keys).
+    private static readonly Dictionary<string, string> MissionNamesFr = new Dictionary<string, string>
     {
-        statusText.text = "Starting camera...";
-
-#if UNITY_IOS || UNITY_WEBGL
-    yield return Application.RequestUserAuthorization(
-        UserAuthorization.WebCam);
-
-    if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
-    {
-        statusText.text = "Camera permission denied.";
-        StartTurnTimerIfGameIsActive();
-        yield break;
-    }
-#endif
-
-        WebCamDevice[] devices = WebCamTexture.devices;
-
-        if (devices == null || devices.Length == 0)
-        {
-            statusText.text = "No webcam found. Camera access is required.";
-            Debug.LogWarning("Photo Challenge: No webcam detected.");
-            StartTurnTimerIfGameIsActive();
-            yield break;
-        }
-
-        int selectedCamera = 0;
-
-        // Prefer the rear-facing camera when one exists.
-        for (int i = 0; i < devices.Length; i++)
-        {
-            if (!devices[i].isFrontFacing)
-            {
-                selectedCamera = i;
-                break;
-            }
-        }
-
-        webcamTexture = new WebCamTexture(
-            devices[selectedCamera].name, 1280, 720, 30);
-
-        cameraPreview.texture = webcamTexture;
-        cameraPreview.color = Color.white;
-
-        webcamTexture.Play();
-
-        Debug.Log(
-    $"Camera: {webcamTexture.deviceName}, " +
-    $"Rotation: {webcamTexture.videoRotationAngle}, " +
-    $"Vertically Mirrored: {webcamTexture.videoVerticallyMirrored}"
-);
-
-
-        float timeout = 10f;
-
-        while (timeout > 0f &&
-               (webcamTexture.width <= 16 || webcamTexture.height <= 16))
-        {
-            timeout -= Time.unscaledDeltaTime;
-            yield return null;
-        }
-
-        if (webcamTexture.width > 16)
-        {
-            statusText.text = "Aim at the object and tap TAKE PHOTO.";
-            StartTurnTimerIfGameIsActive();
-        }
-        else
-        {
-            statusText.text = "Camera not ready. Check permissions.";
-            Debug.LogWarning("Camera did not initialize in time.");
-            StartTurnTimerIfGameIsActive();
-        }
-    }
-
-    private void CreateCameraPreview(GameObject parent, float y, float height)
-    {
-        GameObject frame = new GameObject("CameraPreviewFrame", typeof(RectTransform), typeof(Image));
-        frame.transform.SetParent(parent.transform, false);
-        RectTransform frameRect = frame.GetComponent<RectTransform>();
-        frameRect.anchorMin = new Vector2(0.45f, y - height / 2f);
-        frameRect.anchorMax = new Vector2(0.94f, y + height / 2f);
-        frameRect.offsetMin = Vector2.zero;
-        frameRect.offsetMax = Vector2.zero;
-
-        Image frameImage = frame.GetComponent<Image>();
-        ApplyRoundedImage(frameImage, Player2Blue);
-
-        GameObject preview = new GameObject("LiveCameraPreview", typeof(RectTransform), typeof(RawImage));
-        preview.transform.SetParent(frame.transform, false);
-        RectTransform previewRect = preview.GetComponent<RectTransform>();
-        Stretch(previewRect);
-        previewRect.offsetMin = new Vector2(5f, 5f);
-        previewRect.offsetMax = new Vector2(-5f, -5f);
-
-        cameraPreview = preview.GetComponent<RawImage>();
-        cameraPreview.color = Color.clear;
-        cameraPreview.raycastTarget = false;
-    }
-
-    private void CreateReferencePreview(GameObject parent, float y, float height)
-    {
-        GameObject frame = new GameObject("ReferenceImageFrame", typeof(RectTransform), typeof(Image));
-        frame.transform.SetParent(parent.transform, false);
-        RectTransform frameRect = frame.GetComponent<RectTransform>();
-        frameRect.anchorMin = new Vector2(0.06f, y - height / 2f);
-        frameRect.anchorMax = new Vector2(0.41f, y + height / 2f);
-        frameRect.offsetMin = Vector2.zero;
-        frameRect.offsetMax = Vector2.zero;
-        ApplyRoundedImage(frame.GetComponent<Image>(), Player1Orange);
-
-        GameObject imageObject = new GameObject("ReferenceImage", typeof(RectTransform), typeof(RawImage));
-        imageObject.transform.SetParent(frame.transform, false);
-        RectTransform imageRect = imageObject.GetComponent<RectTransform>();
-        Stretch(imageRect);
-        imageRect.offsetMin = new Vector2(5f, 5f);
-        imageRect.offsetMax = new Vector2(-5f, -5f);
-
-        referencePreview = imageObject.GetComponent<RawImage>();
-        referencePreview.color = Color.white;
-        referencePreview.raycastTarget = false;
-    }
-
-    private void CreateSideLabel(GameObject parent, string label, float xMin, float xMax, float y)
-    {
-        Color labelColor = label.ToUpperInvariant().Contains("REFERENCE") ? Player1Orange : Player2Blue;
-        CreateTextAt(parent, label, 23, xMin, xMax, y, 0.035f, labelColor);
-    }
-
-    // Missions are now driven by the reference images assigned in the Inspector.
-    // This ensures the game never chooses a mission that has no comparison image.
+        { "a bottle", "UNE BOUTEILLE" },
+        { "a chair", "UNE CHAISE" },
+        { "a cup", "UNE TASSE" },
+        { "a book", "UN LIVRE" },
+        { "a phone", "UN TÉLÉPHONE" },
+    };
 
     private int currentPlayer;
     private int turnsPlayed;
@@ -234,7 +126,6 @@ public class PhotoChallengeGame : MonoBehaviour
 
     private readonly Color backgroundColor = new Color32(15, 15, 20, 255); // #0F0F14
     private readonly Color cardColor = new Color32(15, 15, 20, 255);
-    private readonly Color secondaryColor = new Color32(64, 128, 255, 255);
 
     private void Start()
     {
@@ -242,6 +133,171 @@ public class PhotoChallengeGame : MonoBehaviour
         ShowHome();
         StartCoroutine(InitializeImageSimilarityModel());
     }
+
+    // ================================================================ camera
+
+    private IEnumerator InitializeCamera()
+    {
+        statusText.text = "Démarrage de la caméra…";
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (!Permission.HasUserAuthorizedPermission(Permission.Camera))
+        {
+            bool answered = false;
+            var callbacks = new PermissionCallbacks();
+            callbacks.PermissionGranted += _ => answered = true;
+            callbacks.PermissionDenied += _ => answered = true;
+            Permission.RequestUserPermission(Permission.Camera, callbacks);
+            float giveUp = Time.realtimeSinceStartup + 60f;
+            while (!answered && Time.realtimeSinceStartup < giveUp) yield return null;
+        }
+        if (!Permission.HasUserAuthorizedPermission(Permission.Camera))
+        {
+            statusText.text = "Accès à la caméra refusé (Paramètres > Applis).";
+            yield break;
+        }
+#elif UNITY_IOS || UNITY_WEBGL
+        yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
+        if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
+        {
+            statusText.text = "Accès à la caméra refusé.";
+            yield break;
+        }
+#endif
+
+        WebCamDevice[] devices = WebCamTexture.devices;
+        if (devices == null || devices.Length == 0)
+        {
+            statusText.text = "Aucune caméra trouvée.";
+            Debug.LogWarning("Photo Challenge: No webcam detected.");
+            yield break;
+        }
+
+        int selectedCamera = 0;
+        // Prefer the rear-facing camera when one exists.
+        for (int i = 0; i < devices.Length; i++)
+        {
+            if (!devices[i].isFrontFacing)
+            {
+                selectedCamera = i;
+                break;
+            }
+        }
+
+        // Landscape request: phone camera sensors are natively landscape.
+        webcamTexture = new WebCamTexture(devices[selectedCamera].name, 1280, 720, 30);
+        cameraPreview.texture = webcamTexture;
+        cameraPreview.color = Color.white;
+        webcamTexture.Play();
+
+        float timeout = 10f;
+        while (timeout > 0f && (webcamTexture.width <= 16 || webcamTexture.height <= 16))
+        {
+            timeout -= Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        Debug.Log($"Photo Challenge camera: {webcamTexture.deviceName}, {webcamTexture.width}x{webcamTexture.height}, " +
+                  $"rotation {webcamTexture.videoRotationAngle}, mirrored {webcamTexture.videoVerticallyMirrored}");
+
+        if (webcamTexture.width > 16)
+            statusText.text = waitingForReady ? ReadyMessage() : "Vise l'objet et appuie sur PHOTO !";
+        else
+        {
+            statusText.text = "Caméra pas prête. Vérifie les autorisations.";
+            Debug.LogWarning("Camera did not initialize in time.");
+        }
+    }
+
+    // Keeps the live preview upright, unmirrored and with the camera's real proportions.
+    private void UpdateCameraPreviewLayout()
+    {
+        if (cameraPreview == null || cameraArea == null) return;
+        Texture texture = cameraPreview.texture;
+        if (texture == null || texture.width <= 16) return;
+
+        bool live = texture == webcamTexture;
+        int angle = live ? webcamTexture.videoRotationAngle : 0;
+        bool mirrored = live && webcamTexture.videoVerticallyMirrored;
+        bool sideways = angle == 90 || angle == 270;
+
+        cameraPreview.uvRect = mirrored ? new Rect(0f, 1f, 1f, -1f) : new Rect(0f, 0f, 1f, 1f);
+        cameraPreview.rectTransform.localEulerAngles = new Vector3(0f, 0f, -angle);
+
+        // Fit the (possibly rotated) picture inside the frame without stretching it.
+        Vector2 area = cameraArea.rect.size;
+        if (area.x <= 0f || area.y <= 0f) return;
+        float aspect = texture.width / (float)texture.height;
+        float shownAspect = sideways ? 1f / aspect : aspect;
+        Vector2 shown = area.x / area.y > shownAspect
+            ? new Vector2(area.y * shownAspect, area.y)
+            : new Vector2(area.x, area.x / shownAspect);
+        cameraPreview.rectTransform.sizeDelta = sideways ? new Vector2(shown.y, shown.x) : shown;
+    }
+
+    // Copies the current camera frame into an upright, unmirrored texture.
+    private Texture2D CaptureUprightFrame()
+    {
+        int w = webcamTexture.width;
+        int h = webcamTexture.height;
+        Color32[] source = webcamTexture.GetPixels32();
+
+        if (webcamTexture.videoVerticallyMirrored)
+        {
+            var flipped = new Color32[source.Length];
+            for (int y = 0; y < h; y++)
+                Array.Copy(source, (h - 1 - y) * w, flipped, y * w, w);
+            source = flipped;
+        }
+
+        int angle = ((webcamTexture.videoRotationAngle % 360) + 360) % 360;
+        Color32[] result = source;
+        int rw = w, rh = h;
+        if (angle == 90 || angle == 180 || angle == 270)
+        {
+            rw = angle == 180 ? w : h;
+            rh = angle == 180 ? h : w;
+            result = new Color32[source.Length];
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    int nx, ny;
+                    if (angle == 90) { nx = y; ny = w - 1 - x; }            // clockwise
+                    else if (angle == 180) { nx = w - 1 - x; ny = h - 1 - y; }
+                    else { nx = h - 1 - y; ny = x; }                       // 270 clockwise
+                    result[ny * rw + nx] = source[y * w + x];
+                }
+            }
+        }
+
+        var texture = new Texture2D(rw, rh, TextureFormat.RGB24, false);
+        texture.SetPixels32(result);
+        texture.Apply();
+        return texture;
+    }
+
+    private void StopCamera()
+    {
+        if (cameraPreview != null)
+            cameraPreview.texture = null;
+
+        if (webcamTexture != null)
+        {
+            if (webcamTexture.isPlaying)
+                webcamTexture.Stop();
+            Destroy(webcamTexture);
+            webcamTexture = null;
+        }
+
+        if (capturedPhoto != null)
+        {
+            Destroy(capturedPhoto);
+            capturedPhoto = null;
+        }
+    }
+
+    // ================================================================ interface (landscape)
 
     private void CreateInterface()
     {
@@ -256,10 +312,12 @@ public class PhotoChallengeGame : MonoBehaviour
         canvas = canvasObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
+        // Landscape, like the rest of Pocket Jungle: always 1080 tall, 1920+ wide.
         CanvasScaler scaler = canvasObject.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1080, 1920);
-        scaler.matchWidthOrHeight = 0.5f;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 1f;
         canvasObject.AddComponent<GraphicRaycaster>();
 
         CreateBackground();
@@ -292,25 +350,13 @@ public class PhotoChallengeGame : MonoBehaviour
         image.color = backgroundColor;
         image.raycastTarget = false;
         Stretch(obj.GetComponent<RectTransform>());
-
-        // Two short neon rails keep the palette playful without adding new colors.
-        CreateColorStrip(canvas.transform, "TopOrangeRail", 0.08f, 0.28f, 0.955f, 0.960f, Player1Orange);
-        CreateColorStrip(canvas.transform, "TopBlueRail", 0.72f, 0.92f, 0.955f, 0.960f, Player2Blue);
-        CreateColorStrip(canvas.transform, "BottomOrangeRail", 0.08f, 0.20f, 0.035f, 0.040f, Player1Orange);
-        CreateColorStrip(canvas.transform, "BottomBlueRail", 0.80f, 0.92f, 0.035f, 0.040f, Player2Blue);
     }
 
     private GameObject CreatePanel(string panelName)
     {
-        GameObject panel = new GameObject(
-            panelName,
-            typeof(RectTransform)
-        );
-
+        GameObject panel = new GameObject(panelName, typeof(RectTransform));
         panel.transform.SetParent(canvas.transform, false);
-
         Stretch(panel.GetComponent<RectTransform>());
-
         return panel;
     }
 
@@ -319,131 +365,209 @@ public class PhotoChallengeGame : MonoBehaviour
         if (panel == null)
             return;
 
-        GameObject backgroundObject = new GameObject(
-            "JungleBackground",
-            typeof(RectTransform),
-            typeof(Image));
+        GameObject holder = new GameObject("JungleBackgroundArea", typeof(RectTransform), typeof(RectMask2D));
+        holder.transform.SetParent(panel.transform, false);
+        holder.transform.SetAsFirstSibling();
+        Stretch(holder.GetComponent<RectTransform>());
 
-        backgroundObject.transform.SetParent(panel.transform, false);
-        backgroundObject.transform.SetAsFirstSibling();
-
+        GameObject backgroundObject = new GameObject("JungleBackground", typeof(RectTransform), typeof(Image));
+        backgroundObject.transform.SetParent(holder.transform, false);
         RectTransform backgroundRect = backgroundObject.GetComponent<RectTransform>();
-        Stretch(backgroundRect);
+        backgroundRect.anchorMin = backgroundRect.anchorMax = new Vector2(0.5f, 0.5f);
 
         Image backgroundImage = backgroundObject.GetComponent<Image>();
         backgroundImage.sprite = backgroundSprite;
         backgroundImage.type = Image.Type.Simple;
-        backgroundImage.preserveAspect = false;
         backgroundImage.raycastTarget = false;
-
-        // Keep the original dark look until a background sprite is assigned.
-        // Once assigned, the art is rendered fully so its details remain vivid.
         backgroundImage.color = backgroundSprite != null ? Color.white : backgroundColor;
+
+        // The jungle art is portrait: cover the landscape screen without stretching it.
+        AspectRatioFitter fitter = backgroundObject.AddComponent<AspectRatioFitter>();
+        fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+        fitter.aspectRatio = backgroundSprite != null ? backgroundSprite.rect.width / backgroundSprite.rect.height : 16f / 9f;
+
+        // A light dark veil keeps the arcade UI readable on top of the art.
+        GameObject veil = new GameObject("Veil", typeof(RectTransform), typeof(Image));
+        veil.transform.SetParent(holder.transform, false);
+        Stretch(veil.GetComponent<RectTransform>());
+        Image veilImage = veil.GetComponent<Image>();
+        veilImage.color = new Color(0f, 0f, 0f, backgroundSprite != null ? 0.25f : 0f);
+        veilImage.raycastTarget = false;
     }
 
     private void BuildHomeScreen()
     {
-        CreateAccent(homePanel, 0.925f);
-        CreateDecorativeStar(homePanel, 0.08f, 0.825f, 54, Player1Orange);
-        CreateDecorativeStar(homePanel, 0.83f, 0.745f, 48, Player2Blue);
-        CreateDecorativeStar(homePanel, 0.13f, 0.585f, 34, Player2Blue);
-        CreateDecorativeStar(homePanel, 0.86f, 0.565f, 34, Player1Orange);
+        CreateAccent(homePanel, 0.93f);
+        CreateDecorativeStar(homePanel, 0.06f, 0.80f, 70, Player1Orange);
+        CreateDecorativeStar(homePanel, 0.50f, 0.72f, 56, Player2Blue);
+        CreateDecorativeStar(homePanel, 0.09f, 0.40f, 44, Player2Blue);
 
-        CreateText(homePanel, "PHOTO", 112, 0.785f, 0.105f, Player1Orange);
-        CreateText(homePanel, "CHALLENGE", 91, 0.685f, 0.095f, Player2Blue);
-        CreateText(homePanel, "THE OBJECT HUNT!", 34, 0.585f, 0.055f, Color.white);
+        // Left: title block.
+        CreateTextAt(homePanel, "PHOTO", 170, 0.06f, 0.54f, 0.74f, 0.17f, Player1Orange);
+        CreateTextAt(homePanel, "CHALLENGE", 130, 0.06f, 0.54f, 0.58f, 0.14f, Player2Blue);
+        CreateTextAt(homePanel, "LA CHASSE AUX OBJETS !", 48, 0.06f, 0.54f, 0.465f, 0.07f, Color.white);
+        CreateOutlinedPlate(homePanel, "TwoPlayerBadge", 0.10f, 0.50f, 0.355f, 0.09f, Player2Blue, 5f);
+        CreateTextAt(homePanel, "2 JOUEURS  •  " + Mathf.RoundToInt(secondsPerTurn) + " S PAR TOUR", 34, 0.11f, 0.49f, 0.355f, 0.075f, Color.white);
 
-        CreateOutlinedPlate(homePanel, "TwoPlayerBadge", 0.08f, 0.92f, 0.485f, 0.070f, Player2Blue, 5f);
-        CreateText(homePanel, "2 PLAYERS  •  10-SECOND TURNS", 25, 0.485f, 0.060f, Color.white);
-
-        CreateButton(homePanel, "LET'S PLAY!", 0.355f, Player1Orange, OpenSetup);
-        CreateButton(homePanel, "HOW TO PLAY", 0.245f, BlueSignalColor, ShowHowTo);
-        CreateButton(homePanel, "EXIT GAME", 0.135f, RedSignalColor, ExitGame);
+        // Right: actions.
+        CreateButton(homePanel, "C'EST PARTI !", 0.60f, 0.94f, 0.68f, 0.16f, Player1Orange, OpenSetup, 54);
+        CreateButton(homePanel, "COMMENT JOUER", 0.60f, 0.94f, 0.48f, 0.14f, BlueSignalColor, ShowHowTo, 46);
+        CreateButton(homePanel, MiniGameBridge.IsAvailable ? "RETOUR AUX JEUX" : "QUITTER", 0.60f, 0.94f, 0.30f, 0.14f, RedSignalColor, ExitGame, 46);
     }
 
     private void BuildSetupScreen()
     {
-        CreateAccent(setupPanel, 0.925f);
-        CreateText(setupPanel, "PLAYER SETUP", 65, 0.845f, 0.075f, Color.white);
-        CreateText(setupPanel, "PICK YOUR NAMES. GET READY!", 28, 0.775f, 0.045f, BlueSignalColor);
+        CreateAccent(setupPanel, 0.93f);
+        CreateText(setupPanel, "LES JOUEURS", 90, 0.84f, 0.11f, Color.white);
+        CreateText(setupPanel, "CHOISISSEZ VOS PRÉNOMS. PRÊTS ?", 40, 0.755f, 0.06f, BlueSignalColor);
 
-        CreateOutlinedPlate(setupPanel, "PlayerOneCard", 0.08f, 0.92f, 0.645f, 0.175f, Player1Orange, 6f);
-        CreateTextAt(setupPanel, "PLAYER 1  •  ORANGE", 27, 0.13f, 0.87f, 0.695f, 0.040f, Player1Orange);
-        player1Input = CreateInput(setupPanel, "ENTER PLAYER 1 NAME", 0.615f, Player1Orange, 0.14f, 0.86f);
+        CreateOutlinedPlate(setupPanel, "PlayerOneCard", 0.06f, 0.48f, 0.52f, 0.30f, Player1Orange, 6f);
+        CreateTextAt(setupPanel, "JOUEUR 1  •  ORANGE", 40, 0.09f, 0.45f, 0.61f, 0.07f, Player1Orange);
+        player1Input = CreateInput(setupPanel, "PRÉNOM DU JOUEUR 1", 0.48f, 0.12f, Player1Orange, 0.09f, 0.45f);
 
-        CreateOutlinedPlate(setupPanel, "PlayerTwoCard", 0.08f, 0.92f, 0.425f, 0.175f, Player2Blue, 6f);
-        CreateTextAt(setupPanel, "PLAYER 2  •  BLUE", 27, 0.13f, 0.87f, 0.475f, 0.040f, Player2Blue);
-        player2Input = CreateInput(setupPanel, "ENTER PLAYER 2 NAME", 0.395f, Player2Blue, 0.14f, 0.86f);
+        CreateOutlinedPlate(setupPanel, "PlayerTwoCard", 0.52f, 0.94f, 0.52f, 0.30f, Player2Blue, 6f);
+        CreateTextAt(setupPanel, "JOUEUR 2  •  BLEU", 40, 0.55f, 0.91f, 0.61f, 0.07f, Player2Blue);
+        player2Input = CreateInput(setupPanel, "PRÉNOM DU JOUEUR 2", 0.48f, 0.12f, Player2Blue, 0.55f, 0.91f);
 
-        setupStatusText = CreateText(setupPanel, "", 22, 0.315f, 0.040f, RedSignalColor);
-        CreateButton(setupPanel, "START PLAYING", 0.225f, BlueSignalColor, StartGame);
-        CreateButton(setupPanel, "BACK", 0.125f, Player1Orange, ShowHome);
+        setupStatusText = CreateText(setupPanel, "", 32, 0.30f, 0.07f, RedSignalColor);
+        CreateButton(setupPanel, "RETOUR", 0.06f, 0.32f, 0.14f, 0.14f, Player1Orange, ShowHome, 44);
+        CreateButton(setupPanel, "COMMENCER", 0.56f, 0.94f, 0.14f, 0.16f, BlueSignalColor, StartGame, 54);
     }
 
     private void BuildGameScreen()
     {
-        // Keep the top rails above the header so the title never collides with them.
-        CreateAccent(gamePanel, 0.965f);
-        CreateDecorativeStar(gamePanel, 0.10f, 0.865f, 42, Player1Orange);
-        CreateDecorativeStar(gamePanel, 0.90f, 0.865f, 42, Player2Blue);
-        gameTitle = CreateText(gamePanel, "PLAYER'S TURN", 48, 0.895f, 0.058f, Color.white);
-        CreateText(gamePanel, "READY? FIND THE OBJECT!", 27, 0.847f, 0.038f, BlueSignalColor);
+        // Top bar: P1 score, whose turn, P2 score (the top-right corner stays free for the pause button).
+        CreateOutlinedPlate(gamePanel, "PlayerOneScorePlate", 0.02f, 0.25f, 0.92f, 0.10f, Player1Orange, 5f);
+        player1ScoreText = CreateTextAt(gamePanel, "JOUEUR 1  •  0", 40, 0.03f, 0.24f, 0.92f, 0.085f, Player1Orange);
+        gameTitle = CreateTextAt(gamePanel, "AU TOUR DE JOUEUR 1", 64, 0.27f, 0.66f, 0.92f, 0.10f, Color.white);
+        CreateOutlinedPlate(gamePanel, "PlayerTwoScorePlate", 0.68f, 0.91f, 0.92f, 0.10f, Player2Blue, 5f);
+        player2ScoreText = CreateTextAt(gamePanel, "JOUEUR 2  •  0", 40, 0.69f, 0.90f, 0.92f, 0.085f, Player2Blue);
 
-        CreateOutlinedPlate(gamePanel, "PlayerOneScorePlate", 0.06f, 0.47f, 0.785f, 0.074f, Player1Orange, 5f);
-        player1ScoreText = CreateTextAt(gamePanel, "PLAYER 1  •  0", 32, 0.075f, 0.455f, 0.785f, 0.064f, Player1Orange);
+        // Left column: mission + reference picture.
+        CreateOutlinedPlate(gamePanel, "MissionCard", 0.02f, 0.27f, 0.735f, 0.17f, Player1Orange, 6f);
+        missionText = CreateTextAt(gamePanel, "TROUVE :\nUNE CHAISE", 54, 0.03f, 0.26f, 0.735f, 0.155f, Color.white);
+        CreateSideLabel(gamePanel, "RÉFÉRENCE", 0.02f, 0.27f, 0.61f);
+        CreateReferencePreview(gamePanel, 0.02f, 0.27f, 0.075f, 0.585f);
 
-        CreateOutlinedPlate(gamePanel, "PlayerTwoScorePlate", 0.53f, 0.94f, 0.785f, 0.074f, Player2Blue, 5f);
-        player2ScoreText = CreateTextAt(gamePanel, "PLAYER 2  •  0", 32, 0.545f, 0.925f, 0.785f, 0.064f, Player2Blue);
+        // Centre: big live camera.
+        CreateSideLabel(gamePanel, "CAMÉRA", 0.29f, 0.74f, 0.83f);
+        CreateCameraPreview(gamePanel, 0.29f, 0.74f, 0.075f, 0.81f);
 
-        CreateOutlinedPlate(gamePanel, "MissionCard", 0.06f, 0.94f, 0.680f, 0.105f, Player1Orange, 6f);
-        missionText = CreateText(gamePanel, "FIND:\nA CHAIR", 46, 0.680f, 0.094f, Color.white);
-
-        CreateSideLabel(gamePanel, "REFERENCE", 0.06f, 0.41f, 0.568f);
-        CreateSideLabel(gamePanel, "CAMERA", 0.45f, 0.94f, 0.568f);
-        CreateReferencePreview(gamePanel, 0.425f, 0.235f);
-        CreateCameraPreview(gamePanel, 0.425f, 0.235f);
-
-        timerText = CreateText(gamePanel, "TIME LEFT: 10s", 36, 0.267f, 0.048f, BlueSignalColor);
-        statusText = CreateText(gamePanel, "AIM AT THE OBJECT. TAP TAKE PHOTO!", 25, 0.205f, 0.055f, Color.white);
-        CreateButton(gamePanel, "TAKE PHOTO", 0.112f, TakePhotoGreen, CapturePhoto);
+        // Right column: timer, status, main button (bottom-right, under the thumb).
+        timerText = CreateTextAt(gamePanel, "TEMPS : 15 s", 64, 0.76f, 0.98f, 0.72f, 0.12f, BlueSignalColor);
+        statusText = CreateTextAt(gamePanel, "", 34, 0.76f, 0.98f, 0.50f, 0.26f, Color.white);
+        GameObject button = CreateButton(gamePanel, "PRENDRE LA PHOTO", 0.76f, 0.98f, 0.18f, 0.24f, TakePhotoGreen, OnMainButton, 50);
+        mainButtonLabel = button.GetComponentInChildren<TMP_Text>();
+        mainButtonFace = button.transform.Find("ButtonFace").GetComponent<Image>();
     }
 
     private void BuildResultScreen()
     {
-        CreateAccent(resultPanel, 0.925f);
-        CreateText(resultPanel, "ROUND COMPLETE!", 62, 0.845f, 0.075f, Color.white);
-        CreateTrophyGraphic(resultPanel, 0.710f);
-        resultText = CreateText(resultPanel, "PLAYER WINS!", 58, 0.585f, 0.078f, Player1Orange);
+        CreateAccent(resultPanel, 0.93f);
+        CreateText(resultPanel, "PARTIE TERMINÉE !", 86, 0.84f, 0.11f, Color.white);
 
-        CreateOutlinedPlate(resultPanel, "WinnerPlayerOnePlate", 0.07f, 0.48f, 0.445f, 0.105f, Player1Orange, 6f);
-        resultP1ScoreText = CreateTextAt(resultPanel, "PLAYER 1\n0 POINTS", 27, 0.085f, 0.465f, 0.445f, 0.092f, Player1Orange);
+        // Left: trophy + winner.
+        CreateTrophyGraphic(resultPanel, 0.25f, 0.57f);
+        resultText = CreateTextAt(resultPanel, "JOUEUR GAGNE !", 80, 0.04f, 0.46f, 0.36f, 0.12f, Player1Orange);
 
-        CreateOutlinedPlate(resultPanel, "WinnerPlayerTwoPlate", 0.52f, 0.93f, 0.445f, 0.105f, Player2Blue, 6f);
-        resultP2ScoreText = CreateTextAt(resultPanel, "PLAYER 2\n0 POINTS", 27, 0.535f, 0.915f, 0.445f, 0.092f, Player2Blue);
+        // Right: both scores.
+        CreateOutlinedPlate(resultPanel, "WinnerPlayerOnePlate", 0.52f, 0.94f, 0.65f, 0.17f, Player1Orange, 6f);
+        resultP1ScoreText = CreateTextAt(resultPanel, "JOUEUR 1\n0 POINT", 44, 0.54f, 0.92f, 0.65f, 0.15f, Player1Orange);
+        CreateOutlinedPlate(resultPanel, "WinnerPlayerTwoPlate", 0.52f, 0.94f, 0.45f, 0.17f, Player2Blue, 6f);
+        resultP2ScoreText = CreateTextAt(resultPanel, "JOUEUR 2\n0 POINT", 44, 0.54f, 0.92f, 0.45f, 0.15f, Player2Blue);
 
-        CreateButton(resultPanel, "PLAY AGAIN", 0.285f, Player1Orange, OpenSetup);
-        CreateButton(resultPanel, "MAIN MENU", 0.175f, BlueSignalColor, ShowHome);
+        // Bottom: replay, own menu, and (inside Pocket Jungle) continue to the shared Win screen.
+        CreateButton(resultPanel, "REJOUER", 0.04f, 0.28f, 0.14f, 0.14f, Player1Orange, OpenSetup, 44);
+        CreateButton(resultPanel, "MENU", 0.30f, 0.50f, 0.14f, 0.14f, BlueSignalColor, ShowHome, 44);
+        continueButton = CreateButton(resultPanel, "CONTINUER  >", 0.56f, 0.94f, 0.14f, 0.16f, TakePhotoGreen, ContinueToBigGame, 54);
+        continueButton.SetActive(MiniGameBridge.IsAvailable);
     }
 
     private void BuildHowToScreen()
     {
-        CreateAccent(howToPanel, 0.925f);
-        CreateText(howToPanel, "HOW TO PLAY", 70, 0.845f, 0.080f, Player2Blue);
-        CreateText(howToPanel, "FOUR STEPS TO BECOME A PHOTO STAR", 24, 0.775f, 0.045f, Color.white);
+        CreateAccent(howToPanel, 0.93f);
+        CreateText(howToPanel, "COMMENT JOUER", 90, 0.84f, 0.11f, Player2Blue);
+        CreateText(howToPanel, "4 ÉTAPES POUR DEVENIR UNE STAR DE LA PHOTO", 36, 0.755f, 0.06f, Color.white);
 
-        CreateOutlinedPlate(howToPanel, "HowToStepOne", 0.07f, 0.93f, 0.665f, 0.100f, Player1Orange, 5f);
-        CreateText(howToPanel, "01  FIND THE OBJECT\nLook at the reference picture.", 27, 0.665f, 0.088f, Color.white);
+        CreateStep(howToPanel, "HowToStepOne", 0.05f, 0.49f, 0.60f, Player1Orange, "01  TROUVE L'OBJET\nRegarde l'image de référence.");
+        CreateStep(howToPanel, "HowToStepTwo", 0.51f, 0.95f, 0.60f, Player2Blue, "02  SOIS RAPIDE !\nTu as " + Mathf.RoundToInt(secondsPerTurn) + " secondes par tour.");
+        CreateStep(howToPanel, "HowToStepThree", 0.05f, 0.49f, 0.37f, Player2Blue, "03  PRENDS LA PHOTO\nL'objet réel doit ressembler à l'image.");
+        CreateStep(howToPanel, "HowToStepFour", 0.51f, 0.95f, 0.37f, Player1Orange, "04  MARQUE UN POINT\nLe plus de points gagne la partie.");
 
-        CreateOutlinedPlate(howToPanel, "HowToStepTwo", 0.07f, 0.93f, 0.535f, 0.100f, Player2Blue, 5f);
-        CreateText(howToPanel, "02  BE QUICK!\nYou have 10 seconds each turn.", 27, 0.535f, 0.088f, Color.white);
+        CreateButton(howToPanel, "RETOUR AU MENU", 0.30f, 0.70f, 0.13f, 0.14f, BlueSignalColor, ShowHome, 46);
+    }
 
-        CreateOutlinedPlate(howToPanel, "HowToStepThree", 0.07f, 0.93f, 0.405f, 0.100f, Player1Orange, 5f);
-        CreateText(howToPanel, "03  TAKE A PHOTO\nMatch the real object to the picture.", 27, 0.405f, 0.088f, Color.white);
+    private void CreateStep(GameObject parent, string name, float xMin, float xMax, float y, Color color, string text)
+    {
+        CreateOutlinedPlate(parent, name, xMin, xMax, y, 0.19f, color, 5f);
+        CreateTextAt(parent, text, 40, xMin + 0.02f, xMax - 0.02f, y, 0.17f, Color.white);
+    }
 
-        CreateOutlinedPlate(howToPanel, "HowToStepFour", 0.07f, 0.93f, 0.275f, 0.100f, Player2Blue, 5f);
-        CreateText(howToPanel, "04  SCORE A POINT\nThe player with most points wins.", 27, 0.275f, 0.088f, Color.white);
+    private void CreateCameraPreview(GameObject parent, float xMin, float xMax, float yMin, float yMax)
+    {
+        GameObject frame = new GameObject("CameraPreviewFrame", typeof(RectTransform), typeof(Image));
+        frame.transform.SetParent(parent.transform, false);
+        RectTransform frameRect = frame.GetComponent<RectTransform>();
+        frameRect.anchorMin = new Vector2(xMin, yMin);
+        frameRect.anchorMax = new Vector2(xMax, yMax);
+        frameRect.offsetMin = Vector2.zero;
+        frameRect.offsetMax = Vector2.zero;
+        ApplyRoundedImage(frame.GetComponent<Image>(), Player2Blue);
 
-        CreateButton(howToPanel, "BACK TO MENU", 0.125f, BlueSignalColor, ShowHome);
+        // Black area inside the frame; the picture is fitted (and rotated if needed) inside it.
+        GameObject area = new GameObject("CameraArea", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+        area.transform.SetParent(frame.transform, false);
+        cameraArea = area.GetComponent<RectTransform>();
+        Stretch(cameraArea);
+        cameraArea.offsetMin = new Vector2(6f, 6f);
+        cameraArea.offsetMax = new Vector2(-6f, -6f);
+        ApplyRoundedImage(area.GetComponent<Image>(), Color.black);
+
+        GameObject preview = new GameObject("LiveCameraPreview", typeof(RectTransform), typeof(RawImage));
+        preview.transform.SetParent(area.transform, false);
+        RectTransform previewRect = preview.GetComponent<RectTransform>();
+        previewRect.anchorMin = previewRect.anchorMax = new Vector2(0.5f, 0.5f);
+        previewRect.sizeDelta = Vector2.zero;
+
+        cameraPreview = preview.GetComponent<RawImage>();
+        cameraPreview.color = Color.clear;
+        cameraPreview.raycastTarget = false;
+    }
+
+    private void CreateReferencePreview(GameObject parent, float xMin, float xMax, float yMin, float yMax)
+    {
+        GameObject frame = new GameObject("ReferenceImageFrame", typeof(RectTransform), typeof(Image));
+        frame.transform.SetParent(parent.transform, false);
+        RectTransform frameRect = frame.GetComponent<RectTransform>();
+        frameRect.anchorMin = new Vector2(xMin, yMin);
+        frameRect.anchorMax = new Vector2(xMax, yMax);
+        frameRect.offsetMin = Vector2.zero;
+        frameRect.offsetMax = Vector2.zero;
+        ApplyRoundedImage(frame.GetComponent<Image>(), Player1Orange);
+
+        GameObject area = new GameObject("ReferenceArea", typeof(RectTransform), typeof(Image));
+        area.transform.SetParent(frame.transform, false);
+        RectTransform areaRect = area.GetComponent<RectTransform>();
+        Stretch(areaRect);
+        areaRect.offsetMin = new Vector2(6f, 6f);
+        areaRect.offsetMax = new Vector2(-6f, -6f);
+        ApplyRoundedImage(area.GetComponent<Image>(), Color.white);
+
+        GameObject imageObject = new GameObject("ReferenceImage", typeof(RectTransform), typeof(RawImage));
+        imageObject.transform.SetParent(area.transform, false);
+        Stretch(imageObject.GetComponent<RectTransform>());
+        referenceFitter = imageObject.AddComponent<AspectRatioFitter>();
+        referenceFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+
+        referencePreview = imageObject.GetComponent<RawImage>();
+        referencePreview.color = Color.white;
+        referencePreview.raycastTarget = false;
+    }
+
+    private void CreateSideLabel(GameObject parent, string label, float xMin, float xMax, float y)
+    {
+        Color labelColor = label.StartsWith("RÉF") ? Player1Orange : Player2Blue;
+        CreateTextAt(parent, label, 36, xMin, xMax, y, 0.05f, labelColor);
     }
 
     private TMP_Text CreateText(GameObject parent, string value, int fontSize, float y, float height, Color color)
@@ -465,7 +589,7 @@ public class PhotoChallengeGame : MonoBehaviour
         text.fontStyle = FontStyles.Bold;
         text.textWrappingMode = TextWrappingModes.Normal;
         text.enableAutoSizing = true;
-        text.fontSizeMin = Mathf.Max(20f, fontSize * 0.72f);
+        text.fontSizeMin = Mathf.Max(24f, fontSize * 0.6f);
         text.fontSizeMax = fontSize;
         text.raycastTarget = false;
         text.richText = true;
@@ -478,14 +602,14 @@ public class PhotoChallengeGame : MonoBehaviour
         return text;
     }
 
-    private TMP_InputField CreateInput(GameObject parent, string hint, float y, Color borderColor,
-        float xMin = 0.14f, float xMax = 0.86f)
+    private TMP_InputField CreateInput(GameObject parent, string hint, float y, float height, Color borderColor,
+        float xMin, float xMax)
     {
         GameObject obj = new GameObject(hint, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
         obj.transform.SetParent(parent.transform, false);
         RectTransform rect = obj.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(xMin, y - 0.031f);
-        rect.anchorMax = new Vector2(xMax, y + 0.031f);
+        rect.anchorMin = new Vector2(xMin, y - height / 2f);
+        rect.anchorMax = new Vector2(xMax, y + height / 2f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
 
@@ -497,8 +621,8 @@ public class PhotoChallengeGame : MonoBehaviour
         face.transform.SetParent(obj.transform, false);
         RectTransform faceRect = face.GetComponent<RectTransform>();
         Stretch(faceRect);
-        faceRect.offsetMin = new Vector2(4f, 4f);
-        faceRect.offsetMax = new Vector2(-4f, -4f);
+        faceRect.offsetMin = new Vector2(5f, 5f);
+        faceRect.offsetMax = new Vector2(-5f, -5f);
         ApplyRoundedImage(face.GetComponent<Image>(), backgroundColor);
         face.GetComponent<Image>().raycastTarget = false;
 
@@ -508,12 +632,12 @@ public class PhotoChallengeGame : MonoBehaviour
         input.characterLimit = 18;
         input.contentType = TMP_InputField.ContentType.Standard;
 
-        TMP_Text valueText = CreateChildText(face.transform, 30);
+        TMP_Text valueText = CreateChildText(face.transform, 46);
         valueText.alignment = TextAlignmentOptions.Left;
         valueText.fontStyle = FontStyles.Bold;
         input.textComponent = valueText;
 
-        TMP_Text placeholder = CreateChildText(face.transform, 24);
+        TMP_Text placeholder = CreateChildText(face.transform, 38);
         placeholder.text = hint;
         placeholder.color = new Color(1f, 1f, 1f, 0.65f);
         placeholder.alignment = TextAlignmentOptions.Left;
@@ -531,7 +655,7 @@ public class PhotoChallengeGame : MonoBehaviour
         text.alignment = TextAlignmentOptions.Center;
         text.fontStyle = FontStyles.Bold;
         text.enableAutoSizing = true;
-        text.fontSizeMin = Mathf.Max(20f, fontSize * 0.72f);
+        text.fontSizeMin = Mathf.Max(24f, fontSize * 0.6f);
         text.fontSizeMax = fontSize;
         text.textWrappingMode = TextWrappingModes.Normal;
         text.raycastTarget = false;
@@ -539,8 +663,8 @@ public class PhotoChallengeGame : MonoBehaviour
         RectTransform rect = text.rectTransform;
         rect.anchorMin = Vector2.zero;
         rect.anchorMax = Vector2.one;
-        rect.offsetMin = new Vector2(16f, 4f);
-        rect.offsetMax = new Vector2(-16f, -4f);
+        rect.offsetMin = new Vector2(20f, 6f);
+        rect.offsetMax = new Vector2(-20f, -6f);
         return text;
     }
 
@@ -571,15 +695,10 @@ public class PhotoChallengeGame : MonoBehaviour
         return root;
     }
 
-    private void CreateCard(GameObject parent, float y, float height)
-    {
-        CreateOutlinedPlate(parent, "ArcadeCard", 0.06f, 0.94f, y, height, secondaryColor, 5f);
-    }
-
     private void CreateAccent(GameObject parent, float y)
     {
-        CreateColorStrip(parent.transform, "AccentOrange", 0.12f, 0.48f, y, y + 0.007f, Player1Orange);
-        CreateColorStrip(parent.transform, "AccentBlue", 0.52f, 0.88f, y, y + 0.007f, Player2Blue);
+        CreateColorStrip(parent.transform, "AccentOrange", 0.12f, 0.48f, y, y + 0.008f, Player1Orange);
+        CreateColorStrip(parent.transform, "AccentBlue", 0.52f, 0.88f, y, y + 0.008f, Player2Blue);
     }
 
     private void CreateColorStrip(Transform parent, string stripName, float xMin, float xMax,
@@ -596,17 +715,14 @@ public class PhotoChallengeGame : MonoBehaviour
         strip.GetComponent<Image>().raycastTarget = false;
     }
 
-    private void CreateDecorativeStar(GameObject parent, float x, float y, int fontSize, Color color)
+    // Square star of `size` px centred on (x, y) in screen fractions.
+    private void CreateDecorativeStar(GameObject parent, float x, float y, int size, Color color)
     {
         GameObject starObject = new GameObject("ArcadeStar", typeof(RectTransform), typeof(Image));
         starObject.transform.SetParent(parent.transform, false);
         RectTransform rect = starObject.GetComponent<RectTransform>();
-        float width = Mathf.Clamp(fontSize / 500f, 0.055f, 0.105f);
-        float height = width * 1.05f;
-        rect.anchorMin = new Vector2(x - width / 2f, y - height / 2f);
-        rect.anchorMax = new Vector2(x + width / 2f, y + height / 2f);
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
+        rect.anchorMin = rect.anchorMax = new Vector2(x, y);
+        rect.sizeDelta = new Vector2(size * 1.6f, size * 1.6f);
         Image image = starObject.GetComponent<Image>();
         image.sprite = GetStarUiSprite();
         image.color = color;
@@ -614,21 +730,19 @@ public class PhotoChallengeGame : MonoBehaviour
         image.preserveAspect = true;
     }
 
-    private void CreateTrophyGraphic(GameObject parent, float centerY)
+    // Trophy drawn with rounded shapes (sizes in pixels so it keeps its shape on any screen width).
+    private void CreateTrophyGraphic(GameObject parent, float centerX, float centerY)
     {
-        // Draw a trophy using rounded UI shapes so it renders with the built-in TMP font too.
-        CreateTrophyPiece(parent, "TrophyLeftHandle", 0.345f, 0.425f, centerY + 0.012f, 0.052f, Player1Orange);
-        CreateTrophyPiece(parent, "TrophyRightHandle", 0.575f, 0.655f, centerY + 0.012f, 0.052f, Player1Orange);
-        CreateTrophyPiece(parent, "TrophyLeftHandleCutout", 0.362f, 0.414f, centerY + 0.012f, 0.027f, backgroundColor);
-        CreateTrophyPiece(parent, "TrophyRightHandleCutout", 0.586f, 0.638f, centerY + 0.012f, 0.027f, backgroundColor);
-        Image cup = CreateTrophyPiece(parent, "TrophyCup", 0.405f, 0.595f, centerY + 0.020f, 0.080f, Player1Orange);
-        CreateTrophyPiece(parent, "TrophyStem", 0.480f, 0.520f, centerY - 0.040f, 0.035f, Player1Orange);
-        CreateTrophyPiece(parent, "TrophyBase", 0.435f, 0.565f, centerY - 0.064f, 0.022f, Player1Orange);
-        resultTrophyImages.Add(cup);
-        // Keep all visible trophy parts synchronized with the winning player's color.
+        CreateTrophyPiece(parent, "TrophyLeftHandle", centerX, centerY, -128f, 22f, 86f, 100f, Player1Orange);
+        CreateTrophyPiece(parent, "TrophyRightHandle", centerX, centerY, 128f, 22f, 86f, 100f, Player1Orange);
+        CreateTrophyPiece(parent, "TrophyLeftHandleCutout", centerX, centerY, -122f, 22f, 56f, 52f, backgroundColor);
+        CreateTrophyPiece(parent, "TrophyRightHandleCutout", centerX, centerY, 122f, 22f, 56f, 52f, backgroundColor);
+        CreateTrophyPiece(parent, "TrophyCup", centerX, centerY, 0f, 38f, 205f, 154f, Player1Orange);
+        CreateTrophyPiece(parent, "TrophyStem", centerX, centerY, 0f, -77f, 44f, 68f, Player1Orange);
+        CreateTrophyPiece(parent, "TrophyBase", centerX, centerY, 0f, -123f, 140f, 42f, Player1Orange);
         foreach (Transform child in parent.transform)
         {
-            if (child.name.StartsWith("Trophy") && child.name.Contains("Cutout") == false)
+            if (child.name.StartsWith("Trophy") && !child.name.Contains("Cutout"))
             {
                 Image image = child.GetComponent<Image>();
                 if (image != null && !resultTrophyImages.Contains(image))
@@ -637,16 +751,15 @@ public class PhotoChallengeGame : MonoBehaviour
         }
     }
 
-    private Image CreateTrophyPiece(GameObject parent, string pieceName, float xMin, float xMax,
-        float centerY, float height, Color color)
+    private Image CreateTrophyPiece(GameObject parent, string pieceName, float anchorX, float anchorY,
+        float x, float y, float width, float height, Color color)
     {
         GameObject piece = new GameObject(pieceName, typeof(RectTransform), typeof(Image));
         piece.transform.SetParent(parent.transform, false);
         RectTransform rect = piece.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(xMin, centerY - height / 2f);
-        rect.anchorMax = new Vector2(xMax, centerY + height / 2f);
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
+        rect.anchorMin = rect.anchorMax = new Vector2(anchorX, anchorY);
+        rect.anchoredPosition = new Vector2(x, y);
+        rect.sizeDelta = new Vector2(width, height);
         ApplyRoundedImage(piece.GetComponent<Image>(), color);
         piece.GetComponent<Image>().raycastTarget = false;
         return piece.GetComponent<Image>();
@@ -661,13 +774,10 @@ public class PhotoChallengeGame : MonoBehaviour
         }
     }
 
-    private void CreateButton(GameObject parent, string label, float y, Color color,
-        UnityEngine.Events.UnityAction action)
+    // Chunky arcade button. Returns its root so it can be hidden or relabelled.
+    private GameObject CreateButton(GameObject parent, string label, float xMin, float xMax, float y, float height,
+        Color color, UnityEngine.Events.UnityAction action, int fontSize = 46)
     {
-        float height = label == "TAKE PHOTO" ? 0.100f : 0.082f;
-        float xMin = label == "BACK" ? 0.16f : 0.075f;
-        float xMax = label == "BACK" ? 0.84f : 0.925f;
-
         GameObject root = new GameObject("ArcadeButton_" + label, typeof(RectTransform));
         root.transform.SetParent(parent.transform, false);
         RectTransform rootRect = root.GetComponent<RectTransform>();
@@ -680,15 +790,15 @@ public class PhotoChallengeGame : MonoBehaviour
         GameObject shadow = CreateSurfaceChild(root.transform, "ButtonShadow", backgroundColor);
         RectTransform shadowRect = shadow.GetComponent<RectTransform>();
         Stretch(shadowRect);
-        shadowRect.offsetMin = new Vector2(0f, -7f);
-        shadowRect.offsetMax = new Vector2(0f, -7f);
+        shadowRect.offsetMin = new Vector2(0f, -9f);
+        shadowRect.offsetMax = new Vector2(0f, -9f);
 
         Color glowColor = new Color(color.r, color.g, color.b, 0.38f);
         GameObject glow = CreateSurfaceChild(root.transform, "ButtonGlow", glowColor);
         RectTransform glowRect = glow.GetComponent<RectTransform>();
         Stretch(glowRect);
-        glowRect.offsetMin = new Vector2(-4f, -3f);
-        glowRect.offsetMax = new Vector2(4f, 4f);
+        glowRect.offsetMin = new Vector2(-5f, -4f);
+        glowRect.offsetMax = new Vector2(5f, 5f);
 
         GameObject face = CreateSurfaceChild(root.transform, "ButtonFace", color);
         RectTransform faceRect = face.GetComponent<RectTransform>();
@@ -708,11 +818,11 @@ public class PhotoChallengeGame : MonoBehaviour
         colors.selectedColor = Color.white;
         button.colors = colors;
 
-        int fontSize = label == "TAKE PHOTO" ? 38 : 34;
         TMP_Text text = CreateChildText(face.transform, fontSize);
         text.text = label;
         text.fontStyle = FontStyles.Bold;
         text.color = Color.white;
+        return root;
     }
 
     private GameObject CreateSurfaceChild(Transform parent, string name, Color color)
@@ -820,6 +930,8 @@ public class PhotoChallengeGame : MonoBehaviour
         rect.offsetMax = Vector2.zero;
     }
 
+    // ================================================================ navigation
+
     private void SetOnlyPanel(GameObject panelToShow)
     {
         if (homePanel != null) homePanel.SetActive(panelToShow == homePanel);
@@ -835,37 +947,62 @@ public class PhotoChallengeGame : MonoBehaviour
         if (setupStatusText != null) setupStatusText.text = string.Empty;
     }
 
-    private void ShowHome()
+    private void ShowHome() => SetOnlyPanel(homePanel);
+    private void ShowHowTo() => SetOnlyPanel(howToPanel);
+
+    // Inside Pocket Jungle: back to the level menu. Played alone: quit.
+    private void ExitGame()
     {
-        SetOnlyPanel(homePanel);
+        if (MiniGameBridge.IsAvailable && GameFlow.Instance != null)
+        {
+            StopCamera();
+            GameFlow.Instance.LoadLevelMenu();
+            return;
+        }
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
-    private void ShowHowTo()
+    // Result screen "Continuer": opens Pocket Jungle's Win screen (stars from the winner's score out of 3 turns).
+    private void ContinueToBigGame()
     {
-        SetOnlyPanel(howToPanel);
+        if (!MiniGameBridge.IsAvailable)
+        {
+            ShowHome();
+            return;
+        }
+        int winner = scores[0] == scores[1] ? -1 : scores[0] > scores[1] ? 0 : 1;
+        int best = Mathf.Max(scores[0], scores[1]);
+        string detail = winner < 0
+            ? $"Égalité {scores[0]} – {scores[1]}"
+            : $"{players[winner]} gagne {scores[winner]} – {scores[1 - winner]}";
+        int stars = Mathf.Clamp(best, 1, 3);
+        MiniGameBridge.Win(detail, stars, best, 0.2f);
     }
+
+    // ================================================================ game flow
 
     private void StartGame()
     {
         if (!similarityReady)
         {
             setupStatusText.text = similarityLoading
-                ? "AI comparison model is loading. Please wait a moment."
-                : "AI comparison is not ready. Check the model and reference images in Inspector.";
+                ? "Le modèle IA se charge, patiente un instant."
+                : "La comparaison IA n'est pas prête : vérifie le modèle et les images de référence.";
             return;
         }
 
         if (GetAvailableMissions().Count == 0)
         {
-            setupStatusText.text = "Add at least one mission label and reference image to GameManager.";
+            setupStatusText.text = "Ajoute au moins une mission avec une image de référence sur le GameManager.";
             return;
         }
 
-        players[0] = string.IsNullOrWhiteSpace(player1Input.text)
-            ? "Player 1" : player1Input.text.Trim();
-
-        players[1] = string.IsNullOrWhiteSpace(player2Input.text)
-            ? "Player 2" : player2Input.text.Trim();
+        players[0] = string.IsNullOrWhiteSpace(player1Input.text) ? "Joueur 1" : player1Input.text.Trim();
+        players[1] = string.IsNullOrWhiteSpace(player2Input.text) ? "Joueur 2" : player2Input.text.Trim();
 
         scores[0] = 0;
         scores[1] = 0;
@@ -890,49 +1027,77 @@ public class PhotoChallengeGame : MonoBehaviour
         if (availableMissions.Count == 0)
         {
             gameStarted = false;
-            gamePanel.SetActive(false);
-            setupPanel.SetActive(true);
-            setupStatusText.text = "No usable reference image found. Assign a Mission Label and Reference Image.";
+            SetOnlyPanel(setupPanel);
+            setupStatusText.text = "Aucune image de référence utilisable : renseigne Mission Label et Reference Image.";
             return;
         }
 
-        homePanel.SetActive(false);
-        setupPanel.SetActive(false);
-        gamePanel.SetActive(true);
-        resultPanel.SetActive(false);
-        if (howToPanel != null) howToPanel.SetActive(false);
+        SetOnlyPanel(gamePanel);
 
-        gameTitle.text = players[currentPlayer] + "'S TURN";
-        gameTitle.color = currentPlayer == 0 ? Player1Orange : Player2Blue;
+        Color playerColor = currentPlayer == 0 ? Player1Orange : Player2Blue;
+        gameTitle.text = "AU TOUR DE " + players[currentPlayer].ToUpperInvariant();
+        gameTitle.color = playerColor;
 
         MissionReference selectedReference = DrawRandomMission(availableMissions);
         currentMission = selectedReference.missionLabel.Trim();
         Debug.Log("Photo Challenge: random mission '" + currentMission + "' assigned to " + players[currentPlayer] + ".");
-        missionText.text = "FIND:\n" + currentMission;
+        missionText.text = "TROUVE :\n" + MissionDisplayName(currentMission);
         referencePreview.texture = selectedReference.referenceImage;
         referencePreview.color = Color.white;
+        if (referenceFitter != null && selectedReference.referenceImage != null)
+            referenceFitter.aspectRatio = selectedReference.referenceImage.width / (float)selectedReference.referenceImage.height;
 
         RefreshScoreText();
 
-        photoCaptured = false;
+        // The turn waits for the player to take the phone: the timer starts on "Je suis prêt".
         turnResolved = false;
         turnTimerRunning = false;
+        waitingForReady = true;
         turnTimeRemaining = secondsPerTurn;
         lastDisplayedSeconds = -1;
         UpdateTimerLabel();
+        SetMainButton("JE SUIS PRÊT", playerColor);
+        statusText.text = ReadyMessage();
 
         if (webcamTexture != null && webcamTexture.isPlaying)
         {
             cameraPreview.texture = webcamTexture;
             cameraPreview.color = Color.white;
-            statusText.text = "Match your photo to the reference. You have 10 seconds!";
-            StartTurnTimer();
         }
         else
         {
-            statusText.text = "Starting camera...";
             StartCoroutine(InitializeCamera());
         }
+    }
+
+    private string ReadyMessage() =>
+        "Passe le téléphone à <b>" + players[currentPlayer] + "</b>, puis appuie sur PRÊT.";
+
+    private static string MissionDisplayName(string label)
+    {
+        string key = NormalizeMissionKey(label);
+        return MissionNamesFr.TryGetValue(key, out string french) ? french : label.ToUpperInvariant();
+    }
+
+    private void SetMainButton(string label, Color color)
+    {
+        if (mainButtonLabel != null) mainButtonLabel.text = label;
+        if (mainButtonFace != null) mainButtonFace.color = color;
+    }
+
+    // The bottom-right button: "Je suis prêt" starts the turn, then it takes the photo.
+    private void OnMainButton()
+    {
+        if (!gameStarted || turnResolved) return;
+        if (waitingForReady)
+        {
+            waitingForReady = false;
+            SetMainButton("PRENDRE LA PHOTO", TakePhotoGreen);
+            statusText.text = "Vise l'objet et appuie sur PHOTO !";
+            StartTurnTimer();
+            return;
+        }
+        CapturePhoto();
     }
 
     private MissionReference DrawRandomMission(List<MissionReference> availableMissions)
@@ -951,8 +1116,7 @@ public class PhotoChallengeGame : MonoBehaviour
                 missionDeck[j] = temporary;
             }
 
-            // Avoid repeating the previous mission at the boundary between decks,
-            // whenever there is more than one configured mission.
+            // Avoid repeating the previous mission at the boundary between decks.
             if (missionDeck.Count > 1 &&
                 NormalizeMissionKey(missionDeck[0].missionLabel) == lastMissionKey)
             {
@@ -974,32 +1138,21 @@ public class PhotoChallengeGame : MonoBehaviour
         if (!gameStarted || !turnTimerRunning || turnResolved)
             return;
 
-        if (webcamTexture == null ||
-            !webcamTexture.isPlaying ||
-            webcamTexture.width <= 16)
+        if (webcamTexture == null || !webcamTexture.isPlaying || webcamTexture.width <= 16)
         {
-            statusText.text =
-                "Camera unavailable. Check permissions or try a phone.";
+            statusText.text = "Caméra indisponible. Vérifie les autorisations.";
             return;
         }
 
         if (capturedPhoto != null)
             Destroy(capturedPhoto);
 
-        capturedPhoto = new Texture2D(
-            webcamTexture.width,
-            webcamTexture.height,
-            TextureFormat.RGB24,
-            false);
-
-        capturedPhoto.SetPixels(webcamTexture.GetPixels());
-        capturedPhoto.Apply();
+        // Upright copy of the frame (camera rotation and mirroring corrected).
+        capturedPhoto = CaptureUprightFrame();
 
         // Freeze the captured image, then compare it with the mission's reference image.
         cameraPreview.texture = capturedPhoto;
-        photoCaptured = true;
-
-        statusText.text = "Comparing your photo with the reference...";
+        statusText.text = "Comparaison avec la référence…";
         CompareCapturedPhoto(capturedPhoto);
     }
 
@@ -1011,15 +1164,9 @@ public class PhotoChallengeGame : MonoBehaviour
             player2ScoreText.text = players[1].ToUpperInvariant() + "  •  " + scores[1];
     }
 
-    private void StartTurnTimerIfGameIsActive()
-    {
-        if (gameStarted && gamePanel != null && gamePanel.activeSelf)
-            StartTurnTimer();
-    }
-
     private void StartTurnTimer()
     {
-        if (!gameStarted || turnResolved) return;
+        if (!gameStarted || turnResolved || waitingForReady) return;
 
         turnTimeRemaining = secondsPerTurn;
         turnTimerRunning = true;
@@ -1035,7 +1182,7 @@ public class PhotoChallengeGame : MonoBehaviour
         if (seconds == lastDisplayedSeconds) return;
 
         lastDisplayedSeconds = seconds;
-        timerText.text = "TIME LEFT: " + seconds + "s";
+        timerText.text = "TEMPS : " + seconds + " s";
         timerText.color = seconds <= 3 ? RedSignalColor : BlueSignalColor;
     }
 
@@ -1045,9 +1192,8 @@ public class PhotoChallengeGame : MonoBehaviour
 
         turnTimerRunning = false;
         turnResolved = true;
-        photoCaptured = false;
-        timerText.text = "TIME'S UP!";
-        statusText.text = "No point this turn. Next player...";
+        timerText.text = "TEMPS ÉCOULÉ !";
+        statusText.text = "Pas de point ce tour. Joueur suivant…";
 
         if (webcamTexture != null && webcamTexture.isPlaying)
         {
@@ -1060,7 +1206,7 @@ public class PhotoChallengeGame : MonoBehaviour
 
     private IEnumerator AdvanceToNextPlayerAfterDelay()
     {
-        yield return new WaitForSecondsRealtime(1.0f);
+        yield return new WaitForSecondsRealtime(1.5f);
 
         if (!gameStarted) yield break;
 
@@ -1071,7 +1217,6 @@ public class PhotoChallengeGame : MonoBehaviour
 
     private void AllowAnotherPhoto(string message)
     {
-        photoCaptured = false;
         if (webcamTexture != null && webcamTexture.isPlaying)
         {
             cameraPreview.texture = webcamTexture;
@@ -1079,6 +1224,62 @@ public class PhotoChallengeGame : MonoBehaviour
         }
         statusText.text = message;
     }
+
+    private void Update()
+    {
+        UpdateCameraPreviewLayout();
+
+        if (!gameStarted || !turnTimerRunning || turnResolved)
+            return;
+
+        // Game time, so Pocket Jungle's pause (timeScale 0) also pauses the turn.
+        turnTimeRemaining -= Time.deltaTime;
+        if (turnTimeRemaining <= 0f)
+        {
+            turnTimeRemaining = 0f;
+            UpdateTimerLabel();
+            EndTurnForTimeout();
+            return;
+        }
+
+        UpdateTimerLabel();
+    }
+
+    private void ShowWinner()
+    {
+        gameStarted = false;
+        StopCamera();
+        SetOnlyPanel(resultPanel);
+        if (continueButton != null) continueButton.SetActive(MiniGameBridge.IsAvailable);
+
+        if (scores[0] > scores[1])
+        {
+            resultText.text = players[0].ToUpperInvariant() + " GAGNE !";
+            resultText.color = Player1Orange;
+            SetTrophyColor(Player1Orange);
+        }
+        else if (scores[1] > scores[0])
+        {
+            resultText.text = players[1].ToUpperInvariant() + " GAGNE !";
+            resultText.color = Player2Blue;
+            SetTrophyColor(Player2Blue);
+        }
+        else
+        {
+            resultText.text = "ÉGALITÉ !";
+            resultText.color = BlueSignalColor;
+            SetTrophyColor(BlueSignalColor);
+        }
+
+        if (resultP1ScoreText != null)
+            resultP1ScoreText.text = players[0].ToUpperInvariant() + "\n" + Points(scores[0]);
+        if (resultP2ScoreText != null)
+            resultP2ScoreText.text = players[1].ToUpperInvariant() + "\n" + Points(scores[1]);
+    }
+
+    private static string Points(int value) => value + (value > 1 ? " POINTS" : " POINT");
+
+    // ================================================================ AI comparison (MobileCLIP)
 
     private IEnumerator InitializeImageSimilarityModel()
     {
@@ -1216,20 +1417,20 @@ public class PhotoChallengeGame : MonoBehaviour
     {
         if (!similarityReady || similarityWorker == null)
         {
-            AllowAnotherPhoto("AI comparison is not ready. Check the model in Inspector.");
+            AllowAnotherPhoto("La comparaison IA n'est pas prête. Vérifie le modèle dans l'Inspector.");
             return;
         }
 
         if (photo == null)
         {
-            AllowAnotherPhoto("Photo unavailable. Please take another photo.");
+            AllowAnotherPhoto("Photo indisponible, reprends-en une.");
             return;
         }
 
         string key = NormalizeMissionKey(currentMission);
         if (!referenceEmbeddings.TryGetValue(key, out List<float[]> referenceList) || referenceList.Count == 0)
         {
-            AllowAnotherPhoto("There is no reference image for this mission. Check GameManager setup.");
+            AllowAnotherPhoto("Pas d'image de référence pour cette mission. Vérifie le GameManager.");
             return;
         }
 
@@ -1256,20 +1457,21 @@ public class PhotoChallengeGame : MonoBehaviour
                     RefreshScoreText();
                     turnResolved = true;
                     turnTimerRunning = false;
-                    timerText.text = "MATCH!";
-                    statusText.text = "REFERENCE MATCH! Similarity: " + bestSimilarity.ToString("0.00") + ". Point awarded.";
+                    timerText.text = "TROUVÉ !";
+                    statusText.text = "C'EST ÇA ! Ressemblance : " + bestSimilarity.ToString("0.00") + ".  +1 point";
+                    Haptics.Pulse(150, 200);
                     StartCoroutine(AdvanceToNextPlayerAfterDelay());
                 }
             }
             else
             {
-                AllowAnotherPhoto("Not similar enough (" + bestSimilarity.ToString("0.00") +
-                    "). Center the object and try again.");
+                AllowAnotherPhoto("Pas assez ressemblant (" + bestSimilarity.ToString("0.00") +
+                    "). Centre l'objet et réessaie.");
             }
         }
         catch (Exception ex)
         {
-            AllowAnotherPhoto("Image comparison failed. Check the Console, then try again.");
+            AllowAnotherPhoto("La comparaison a échoué. Regarde la Console puis réessaie.");
             Debug.LogError("Photo Challenge: image comparison failed: " + ex);
         }
     }
@@ -1315,98 +1517,15 @@ public class PhotoChallengeGame : MonoBehaviour
     {
         return (value ?? string.Empty)
             .Trim()
-            .Trim('\uFEFF')
+            .Trim('﻿')
             .Trim('"')
             .Replace("_", " ")
             .ToLowerInvariant();
     }
 
-    private void Update()
-    {
-        if (!gameStarted || !turnTimerRunning || turnResolved)
-            return;
-
-        turnTimeRemaining -= Time.unscaledDeltaTime;
-        if (turnTimeRemaining <= 0f)
-        {
-            turnTimeRemaining = 0f;
-            UpdateTimerLabel();
-            EndTurnForTimeout();
-            return;
-        }
-
-        UpdateTimerLabel();
-    }
-
-    private void ShowWinner()
-    {
-        gameStarted = false;
-        StopCamera();
-        homePanel.SetActive(false);
-        setupPanel.SetActive(false);
-        gamePanel.SetActive(false);
-        resultPanel.SetActive(true);
-        if (howToPanel != null) howToPanel.SetActive(false);
-
-        if (scores[0] > scores[1])
-        {
-            resultText.text = players[0].ToUpperInvariant() + " WINS!";
-            resultText.color = Player1Orange;
-            SetTrophyColor(Player1Orange);
-        }
-        else if (scores[1] > scores[0])
-        {
-            resultText.text = players[1].ToUpperInvariant() + " WINS!";
-            resultText.color = Player2Blue;
-            SetTrophyColor(Player2Blue);
-        }
-        else
-        {
-            resultText.text = "IT'S A DRAW!";
-            resultText.color = BlueSignalColor;
-            SetTrophyColor(BlueSignalColor);
-        }
-
-        if (resultP1ScoreText != null)
-            resultP1ScoreText.text = players[0].ToUpperInvariant() + "\n" + scores[0] + " POINTS";
-        if (resultP2ScoreText != null)
-            resultP2ScoreText.text = players[1].ToUpperInvariant() + "\n" + scores[1] + " POINTS";
-    }
-
-    private void StopCamera()
-    {
-        if (cameraPreview != null)
-            cameraPreview.texture = null;
-
-        if (webcamTexture != null)
-        {
-            if (webcamTexture.isPlaying)
-                webcamTexture.Stop();
-
-            Destroy(webcamTexture);
-            webcamTexture = null;
-        }
-
-        if (capturedPhoto != null)
-        {
-            Destroy(capturedPhoto);
-            capturedPhoto = null;
-        }
-
-        photoCaptured = false;
-    }
-    private void ExitGame()
-    {
-        Debug.Log("Exit game requested.");
-
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-        Application.Quit();
-#endif
-    }
     private void OnDestroy()
     {
+        StopCamera();
         similarityWorker?.Dispose();
         similarityWorker = null;
 
@@ -1417,5 +1536,4 @@ public class PhotoChallengeGame : MonoBehaviour
             similarityInputTexture = null;
         }
     }
-
 }

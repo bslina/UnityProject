@@ -48,7 +48,7 @@ namespace SoundCopy.UI
         public void BeginAnalysis()
         {
             if (analysisRoutine != null) StopCoroutine(analysisRoutine);
-            statusText.text = "Préparation de l'analyse…";
+            statusText.text = "Getting the analysis ready…";
             if (errorActions != null) errorActions.SetActive(false);
             analysisRoutine = StartCoroutine(RunAnalysis());
         }
@@ -57,7 +57,7 @@ namespace SoundCopy.UI
         {
             if (gameManager == null || gameManager.AIJudge == null)
             {
-                ShowError("Le juge IA n'est pas configuré.\nRelance SoundCopy > Build Scenes.");
+                ShowError("The AI judge isn't set up.\nRun SoundCopy > Build Scenes again.");
                 yield break;
             }
             AIJudgeResult result = null;
@@ -70,11 +70,11 @@ namespace SoundCopy.UI
 
             if (result == null || !result.Success)
             {
-                ShowError(result != null ? result.Error : "Résultat IA indisponible.");
+                ShowError(result != null ? result.Error : "AI result unavailable.");
                 yield break;
             }
 
-            statusText.text = "Verdict prêt !";
+            statusText.text = "Verdict ready!";
             yield return new WaitForSecondsRealtime(0.6f);
             analysisRoutine = null;
             gameManager.RegisterRoundResult(result);
@@ -82,7 +82,7 @@ namespace SoundCopy.UI
 
         private void ShowError(string message)
         {
-            statusText.text = "Erreur IA\n" + message;
+            statusText.text = "AI error\n" + message;
             if (errorActions != null) errorActions.SetActive(true);
             analysisRoutine = null;
         }
@@ -93,17 +93,20 @@ namespace SoundCopy.UI
         {
             UIFactory.ClearChildren(transform);
             var page = MobileUI.Page(transform, SoundCopyTheme.DarkPlum);
-            MobileUI.TopBar(page, "L'IA ÉCOUTE…", false, SoundCopyTheme.Cream, out _, out _);
+            MobileUI.TopBar(page, "THE AI IS LISTENING…", false, SoundCopyTheme.Cream, out _, out _);
 
-            var badge = MobileUI.Row(page, "AIBadge", 260f, 220f, 430f);
-            MobileUI.Card(badge.gameObject, SoundCopyTheme.Lime, 110f);
-            MobileUI.Text(badge, "Label", "IA", 120f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
+            // Left: AI badge.
+            var badge = MobileUI.TopLeft(page, "AIBadge", 150f, 300f, 340f, 340f);
+            MobileUI.Card(badge.gameObject, SoundCopyTheme.Lime, 170f);
+            MobileUI.Text(badge, "Label", "AI", 170f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
 
-            var card = MobileUI.Row(page, "Scanner", 560f, 520f);
+            // Right: scanner, status, explanation.
+            var side = UIFactory.CreateRect("Side", page, Vector2.zero, Vector2.one, new Vector2(600f, 0f), new Vector2(-MobileUI.Side, 0f));
+            var card = MobileUI.Row(side.transform, "Scanner", 180f, 400f, 0f);
             MobileUI.Card(card.gameObject, new Color(0.12f, 0.07f, 0.15f), 44f);
             UIFactory.AddNativeOutline(card.gameObject, SoundCopyTheme.Cream, 3f);
-            var wave = UIFactory.CreateRect("Waveform", card, Vector2.zero, Vector2.one, new Vector2(40f, 50f), new Vector2(-40f, -50f));
-            scannerBars = new RectTransform[23];
+            var wave = UIFactory.CreateRect("Waveform", card, Vector2.zero, Vector2.one, new Vector2(40f, 44f), new Vector2(-40f, -44f));
+            scannerBars = new RectTransform[31];
             for (int i = 0; i < scannerBars.Length; i++)
             {
                 float w = 1f / scannerBars.Length;
@@ -115,17 +118,17 @@ namespace SoundCopy.UI
             UIFactory.AddRounded(sweep, SoundCopyTheme.Cream, 6f);
             scannerSweep = (RectTransform)sweep.transform;
 
-            var status = MobileUI.Row(page, "Status", 1130f, 200f);
-            statusText = MobileUI.Text(status, "Text", "Préparation de l'analyse…", 48f, SoundCopyTheme.Cream, TextAlignmentOptions.Center);
+            var status = MobileUI.Row(side.transform, "Status", 610f, 120f, 0f);
+            statusText = MobileUI.Text(status, "Text", "Getting the analysis ready…", 46f, SoundCopyTheme.Cream, TextAlignmentOptions.TopLeft);
             statusText.textWrappingMode = TextWrappingModes.Normal;
-            var info = MobileUI.Row(page, "Info", 1340f, 130f);
-            var infoText = MobileUI.Text(info, "Text", "Les deux imitations sont comparées au son original,\ndirectement sur le téléphone.", 34f, new Color(1f, 1f, 1f, 0.6f), TextAlignmentOptions.Center);
+            var info = MobileUI.Row(side.transform, "Info", 740f, 90f, 0f);
+            var infoText = MobileUI.Text(info, "Text", "Both imitations are compared with the original sound, right on the phone.", 32f, new Color(1f, 1f, 1f, 0.6f), TextAlignmentOptions.TopLeft);
             infoText.textWrappingMode = TextWrappingModes.Normal;
 
-            var actions = MobileUI.BottomRow(page, "ErrorActions", MobileUI.BottomMargin, MobileUI.ButtonHeight);
+            var actions = MobileUI.BottomRight(page, "ErrorActions", 900f);
             errorActions = actions.gameObject;
-            retryButton = MobileUI.BigButton(MobileUI.Cell(actions, "Retry", 0, 2, 30f), "RetryButton", "RÉESSAYER", SoundCopyTheme.Lime, SoundCopyTheme.Ink, 46f);
-            redoButton = MobileUI.BigButton(MobileUI.Cell(actions, "Redo", 1, 2, 30f), "RedoButton", "REFAIRE", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 46f);
+            retryButton = MobileUI.BigButton(MobileUI.Cell(actions, "Retry", 0, 2, 30f), "RetryButton", "TRY AGAIN", SoundCopyTheme.Lime, SoundCopyTheme.Ink, 44f);
+            redoButton = MobileUI.BigButton(MobileUI.Cell(actions, "Redo", 1, 2, 30f), "RedoButton", "REDO", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 44f);
             errorActions.SetActive(false);
         }
     }

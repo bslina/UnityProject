@@ -10,6 +10,7 @@ namespace SoundCopy
         Recording,
         AIAnalysis,
         Verdict,
-        Results
+        Results,
+        Spin       // added last so saved scenes keep their values
     }
 }

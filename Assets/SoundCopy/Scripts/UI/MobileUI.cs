@@ -4,15 +4,18 @@ using UnityEngine.UI;
 
 namespace SoundCopy.UI
 {
-    // Layout helpers for the Sound Copy screens, sized for a phone held upright (canvas 1080 x 2400).
-    // Everything is placed in pixels from the top or bottom edge, so screens of any height keep
-    // the same comfortable sizes: text >= 34 px, buttons >= 150 px tall, main action at the bottom.
+    // Layout helpers for the Sound Copy screens, sized for a phone held sideways.
+    // Canvas: 1920 x 1080 reference, matched on HEIGHT, so every screen is 1080 px tall and
+    // 1920 (16:9) to ~2400 (20:9) px wide. Screens use two columns; the main action sits
+    // bottom-right, under the right thumb. Text >= 30 px, buttons >= 120 px tall.
     public static class MobileUI
     {
         public const float Side = 56f;            // left / right margin
-        public const float TopBarHeight = 150f;
-        public const float ButtonHeight = 170f;
-        public const float BottomMargin = 56f;
+        public const float TopBarHeight = 120f;
+        public const float ContentTop = 165f;      // first pixel below the top bar
+        public const float ButtonHeight = 150f;
+        public const float ButtonWidth = 640f;
+        public const float BottomMargin = 40f;
 
         // Set by the scene builder before building; stored in every text so they survive in the scene.
         public static TMP_FontAsset DisplayFont;   // Anton: titles, big numbers, buttons
@@ -20,49 +23,90 @@ namespace SoundCopy.UI
 
         // ---------------------------------------------------------------- page structure
 
-        public static RectTransform Page(Transform parent, Color background, bool pattern = true)
+        // Full-screen page. Dark pages show the jungle picture (like the Pocket Jungle menus) under a
+        // dark veil; other colours (the hand-over screen) are a plain coloured Image.
+        public static RectTransform Page(Transform parent, Color background, bool picture = true)
         {
             GameObject page = UIFactory.CreateRect("Page", parent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             // Bleeds a little past the safe area so notches/rounded corners never show a gap.
             var bg = UIFactory.CreateRect("Background", page.transform, Vector2.zero, Vector2.one, new Vector2(-200f, -200f), new Vector2(200f, 200f));
-            UIFactory.AddRounded(bg, background, 0f, true); // raycast: blocks taps on hidden panels
-            if (pattern)
+            bool usePicture = picture && SoundCopySkin.PageBackground != null;
+            UIFactory.AddSprite(bg, null, usePicture ? Color.black : background, true); // raycast: blocks taps on hidden panels
+            if (usePicture)
             {
-                var dots = UIFactory.CreateRect("Pattern", bg.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                var graphic = dots.AddComponent<PatternGraphic>();
-                graphic.color = new Color(1f, 1f, 1f, 0.06f);
-                graphic.Spacing = 46f;
-                graphic.DotSize = 3f;
-                graphic.raycastTarget = false;
+                bg.AddComponent<RectMask2D>();
+                var art = UIFactory.CreateRect("Picture", bg.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+                UIFactory.AddSprite(art, SoundCopySkin.PageBackground, Color.white);
+                var fitter = art.AddComponent<AspectRatioFitter>();
+                fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+                fitter.aspectRatio = SoundCopySkin.PageBackground.rect.width / SoundCopySkin.PageBackground.rect.height;
+                var veil = UIFactory.CreateRect("Veil", bg.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                UIFactory.AddSprite(veil, null, new Color(0.05f, 0.03f, 0.07f, 0.5f));
             }
             return (RectTransform)page.transform;
+        }
+
+        // Framed green window from the pack (for static containers).
+        public static Image Panel(GameObject go, bool raycast = false)
+        {
+            if (SoundCopySkin.Panel == null) return Card(go, new Color(0.17f, 0.11f, 0.21f), 40f, true, raycast);
+            var image = UIFactory.AddSprite(go, SoundCopySkin.Panel, Color.white, raycast);
+            image.pixelsPerUnitMultiplier = 1.4f; // thinner frame on big windows
+            return image;
+        }
+
+        // Round green pack button with an icon (back, pause). Falls back to a cream disc with text.
+        public static Button RoundButton(Transform parent, string name, Sprite icon, string fallbackText, bool flipIcon = false)
+        {
+            var go = UIFactory.CreateRect(name, parent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Image face = SoundCopySkin.RoundButton != null
+                ? UIFactory.AddSprite(go, SoundCopySkin.RoundButton, Color.white, true)
+                : UIFactory.AddCircle(go, SoundCopyTheme.Cream, true);
+            var button = go.AddComponent<Button>();
+            button.targetGraphic = face;
+            if (icon != null)
+            {
+                var iconGo = UIFactory.CreateRect("Icon", go.transform, new Vector2(0.24f, 0.24f), new Vector2(0.76f, 0.76f), Vector2.zero, Vector2.zero);
+                var iconImage = UIFactory.AddSprite(iconGo, icon, Color.white);
+                iconImage.preserveAspect = true;
+                if (flipIcon) iconGo.transform.localScale = new Vector3(-1f, 1f, 1f);
+            }
+            else
+            {
+                Text(go.transform, "Label", fallbackText, 60f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
+            }
+            return button;
         }
 
         // Back arrow (left), title (centre) and an optional chip (right). Returns the back button, or null.
         public static Button TopBar(RectTransform page, string title, bool withBack, Color textColor,
             out TextMeshProUGUI titleText, out TextMeshProUGUI chipText, bool withChip = false)
         {
-            var bar = Row(page, "TopBar", 24f, TopBarHeight, 32f);
+            var bar = Row(page, "TopBar", 22f, TopBarHeight, 32f);
             Button back = null;
             if (withBack)
             {
                 var backGo = UIFactory.CreateRect("BackButton", bar, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
                 var rt = (RectTransform)backGo.transform;
                 rt.pivot = new Vector2(0f, 0.5f);
-                rt.sizeDelta = new Vector2(130f, 130f);
-                var g = UIFactory.AddRounded(backGo, SoundCopyTheme.Cream, 65f, true);
-                UIFactory.AddNativeOutline(backGo, SoundCopyTheme.Ink, 4f);
-                back = backGo.AddComponent<Button>();
-                back.targetGraphic = g;
-                Text(backGo.transform, "Arrow", "<", 64f, SoundCopyTheme.Ink, TextAlignmentOptions.Center, true);
+                rt.sizeDelta = new Vector2(116f, 116f);
+                back = RoundButton(backGo.transform, "Button", SoundCopySkin.IconBack, "<", true);
             }
 
-            titleText = Text(bar, "Title", title, 58f, textColor, TextAlignmentOptions.Center, true);
-            titleText.rectTransform.offsetMin = new Vector2(150f, 0f);
-            titleText.rectTransform.offsetMax = new Vector2(-150f, 0f);
+            // Ribbon banner behind the title, like the menus.
+            if (SoundCopySkin.Ribbon != null)
+            {
+                var ribbon = UIFactory.CreateRect("Ribbon", bar, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+                ((RectTransform)ribbon.transform).sizeDelta = new Vector2(980f, 150f);
+                UIFactory.AddSprite(ribbon, SoundCopySkin.Ribbon, Color.white);
+            }
+
+            titleText = Text(bar, "Title", title, 60f, textColor, TextAlignmentOptions.Center, true);
+            titleText.rectTransform.offsetMin = new Vector2(170f, 0f);
+            titleText.rectTransform.offsetMax = new Vector2(-170f, 0f);
             titleText.enableAutoSizing = true;
             titleText.fontSizeMin = 40f;
-            titleText.fontSizeMax = 58f;
+            titleText.fontSizeMax = 60f;
 
             chipText = null;
             if (withChip)
@@ -110,6 +154,43 @@ namespace SoundCopy.UI
             return rt;
         }
 
+        // A block spanning a horizontal fraction of the parent (xMin..xMax, with `side` px padding on
+        // the outer edges and half a gutter between columns), `top` px from the top, `height` px tall.
+        public static RectTransform ColRow(Transform parent, string name, float xMin, float xMax, float top, float height, float gutter = 48f)
+        {
+            var go = UIFactory.CreateRect(name, parent, new Vector2(xMin, 1f), new Vector2(xMax, 1f), Vector2.zero, Vector2.zero);
+            var rt = (RectTransform)go.transform;
+            rt.pivot = new Vector2(0.5f, 1f);
+            float left = xMin <= 0f ? Side : gutter * 0.5f;
+            float right = xMax >= 1f ? Side : gutter * 0.5f;
+            rt.offsetMin = new Vector2(left, -top - height);
+            rt.offsetMax = new Vector2(-right, -top);
+            return rt;
+        }
+
+        // A block of fixed size pinned to the bottom-right corner (the main action).
+        public static RectTransform BottomRight(Transform parent, string name, float width = ButtonWidth, float height = ButtonHeight,
+            float right = Side, float bottom = BottomMargin)
+        {
+            var go = UIFactory.CreateRect(name, parent, new Vector2(1f, 0f), new Vector2(1f, 0f), Vector2.zero, Vector2.zero);
+            var rt = (RectTransform)go.transform;
+            rt.pivot = new Vector2(1f, 0f);
+            rt.anchoredPosition = new Vector2(-right, bottom);
+            rt.sizeDelta = new Vector2(width, height);
+            return rt;
+        }
+
+        // A block pinned to the left edge, `top` px from the top, fixed size.
+        public static RectTransform TopLeft(Transform parent, string name, float left, float top, float width, float height)
+        {
+            var go = UIFactory.CreateRect(name, parent, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
+            var rt = (RectTransform)go.transform;
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(left, -top);
+            rt.sizeDelta = new Vector2(width, height);
+            return rt;
+        }
+
         // Splits a parent horizontally: returns the cell `index` of `count` (with a gap in pixels).
         public static RectTransform Cell(Transform parent, string name, int index, int count, float gap = 24f)
         {
@@ -133,7 +214,7 @@ namespace SoundCopy.UI
             return text;
         }
 
-        public static RoundedRectGraphic Card(GameObject go, Color fill, float radius = 40f, bool outline = true, bool raycast = false)
+        public static Image Card(GameObject go, Color fill, float radius = 40f, bool outline = true, bool raycast = false)
         {
             var g = UIFactory.AddRounded(go, fill, radius, raycast);
             if (outline) UIFactory.AddNativeOutline(go, SoundCopyTheme.Ink, 4f);
@@ -145,12 +226,21 @@ namespace SoundCopy.UI
             out TextMeshProUGUI labelText, float fontSize = 54f)
         {
             var go = UIFactory.CreateRect(name, parent, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            var g = UIFactory.AddRounded(go, fill, 46f, true);
-            UIFactory.AddNativeOutline(go, SoundCopyTheme.Ink, 4f);
-            var shadow = go.AddComponent<Shadow>();
-            shadow.effectColor = SoundCopyTheme.Ink;
-            shadow.effectDistance = new Vector2(0f, -12f);
-            shadow.useGraphicAlpha = true;
+            Image g;
+            if (SoundCopySkin.Button != null)
+            {
+                // Green pack button: lime = as drawn, cream = orange-brown (as in the pause menu), dark = grey.
+                Color tint = fill == SoundCopyTheme.Lime ? Color.white
+                    : fill == SoundCopyTheme.Cream ? SoundCopySkin.SecondaryTint
+                    : fill == SoundCopyTheme.Ink ? SoundCopySkin.DarkTint : fill;
+                g = UIFactory.AddSprite(go, SoundCopySkin.Button, tint, true);
+                textColor = Color.white;
+            }
+            else
+            {
+                g = UIFactory.AddRounded(go, fill, 46f, true);
+                UIFactory.AddNativeOutline(go, SoundCopyTheme.Ink, 4f);
+            }
             var button = go.AddComponent<Button>();
             button.targetGraphic = g;
             var colors = button.colors;

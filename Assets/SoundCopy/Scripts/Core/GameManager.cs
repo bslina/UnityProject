@@ -8,11 +8,11 @@ using UnityEngine;
 
 namespace SoundCopy
 {
-    // Match flow:
-    //   Menu -> Setup (names, rounds, category) -> Round -> Video -> HandOver(P1) -> Recording(P1)
-    //   -> HandOver(P2) -> Recording(P2) -> AI analysis -> Verdict -> next Round ... -> Results
-    // Jokers: once per match, each player can shake the phone on the Round screen to double
-    // the points of that round if they win it.
+    // Match flow (always 3 rounds):
+    //   Menu -> Setup (names, category) -> Round -> SPIN THE PHONE -> Video -> HandOver(first) -> Recording(first)
+    //   -> HandOver(second) -> Recording(second) -> AI analysis -> Verdict -> next Round ... -> Results
+    // Spin: the phone is spun flat on the table (gyroscope). Where its top points when it stops picks who
+    // imitates first; a fast spin turns the round into a x2 round. Recording starts by raising the phone.
     public sealed class GameManager : MonoBehaviour
     {
         [SerializeField] private GameState currentState = GameState.Menu;
@@ -27,6 +27,8 @@ namespace SoundCopy
         [SerializeField] private AIAnalysisPanel aiAnalysisPanel;
         [SerializeField] private VerdictPanel verdictPanel;
         [SerializeField] private ResultsPanel resultsPanel;
+        [Tooltip("Spin-the-phone screen (added by SoundCopy > Add Spin Screen). Without it, P1 always starts.")]
+        [SerializeField] private SpinPanel spinPanel;
         [SerializeField] private PauseOverlay pauseOverlay;
 
         [Header("Services")]
@@ -34,23 +36,19 @@ namespace SoundCopy
         [SerializeField] private ShakeDetector shakeDetector;
 
         [Header("Rules")]
-        [Tooltip("Points for winning a round. A joker doubles them.")]
+        [Tooltip("Rounds in a match.")]
+        [SerializeField] private int roundsPerMatch = 3;
+        [Tooltip("Points for winning a round. A x2 round (fast spin) doubles them.")]
         [SerializeField] private int pointsPerRound = 1;
-        [Tooltip("Shakes needed to arm a joker.")]
-        [SerializeField] private int shakesForJoker = 3;
 
         [Header("Match (runtime)")]
-        [SerializeField] private string player1Name = "Joueur 1";
-        [SerializeField] private string player2Name = "Joueur 2";
+        [SerializeField] private string player1Name = "Player 1";
+        [SerializeField] private string player2Name = "Player 2";
         [SerializeField] private int roundCount = 3;
         [SerializeField] private int currentRound = 1;
         [SerializeField] private ChallengeCategory category = ChallengeCategory.International;
         [SerializeField] private int player1Points;
         [SerializeField] private int player2Points;
-        [SerializeField] private bool player1JokerUsed;
-        [SerializeField] private bool player2JokerUsed;
-        [SerializeField] private bool player1JokerThisRound;
-        [SerializeField] private bool player2JokerThisRound;
         [SerializeField] private List<RoundRecord> history = new List<RoundRecord>();
 
         [Header("Round (runtime)")]
@@ -59,31 +57,34 @@ namespace SoundCopy
         [SerializeField] private AudioClip player1Recording;
         [SerializeField] private AudioClip player2Recording;
         [SerializeField] private bool player1RecordedThisRound;
+        [SerializeField] private bool player2RecordedThisRound;
+        [SerializeField] private int firstPlayer = 1;
+        [SerializeField] private bool doubleRound;
 
         public GameState CurrentState => currentState;
-        public string Player1Name => string.IsNullOrWhiteSpace(player1Name) ? "Joueur 1" : player1Name;
-        public string Player2Name => string.IsNullOrWhiteSpace(player2Name) ? "Joueur 2" : player2Name;
+        public string Player1Name => string.IsNullOrWhiteSpace(player1Name) ? "Player 1" : player1Name;
+        public string Player2Name => string.IsNullOrWhiteSpace(player2Name) ? "Player 2" : player2Name;
         public string PlayerName(int player) => player == 1 ? Player1Name : Player2Name;
         public int RoundCount => roundCount;
         public int CurrentRound => currentRound;
         public bool IsLastRound => currentRound >= roundCount;
+        public int RoundsLeft => roundCount - currentRound + 1;
         public ChallengeCategory Category => category;
-        public string CategoryLabel => category == ChallengeCategory.Tunisian ? "TOUNSI" : category == ChallengeCategory.Mixed ? "MIXTE" : "INTERNATIONAL";
+        public string CategoryLabel => category == ChallengeCategory.Tunisian ? "TUNISIAN" : category == ChallengeCategory.Mixed ? "MIXED" : "INTERNATIONAL";
         public AudioClip Player1Recording => player1Recording;
         public AudioClip Player2Recording => player2Recording;
         public string CurrentReferenceId => currentReferenceId;
         public float CurrentChallengeDuration => currentChallengeDuration;
         public OnDeviceAIJudge AIJudge => aiJudge;
-        public ShakeDetector Shake => shakeDetector;
-        public int ShakesForJoker => Mathf.Max(1, shakesForJoker);
+        public int FirstPlayer => firstPlayer;
+        public bool DoubleRound => doubleRound;
+        public bool Recorded(int player) => player == 1 ? player1RecordedThisRound : player2RecordedThisRound;
         public int Player1Score => player1Points;
         public int Player2Score => player2Points;
         public int Points(int player) => player == 1 ? player1Points : player2Points;
         public IReadOnlyList<RoundRecord> History => history;
         public RoundRecord LastRound => history.Count > 0 ? history[history.Count - 1] : null;
 
-        public bool JokerUsed(int player) => player == 1 ? player1JokerUsed : player2JokerUsed;
-        public bool JokerActive(int player) => player == 1 ? player1JokerThisRound : player2JokerThisRound;
 
         // Average AI accuracy of a player over the match (0-100).
         public float AverageAccuracy(int player)
@@ -126,23 +127,28 @@ namespace SoundCopy
             shakeDetector = shake;
         }
 
-        private void Start() => Show(GameState.Menu);
+        public void ConfigureSpin(SpinPanel spin) => spinPanel = spin;
+
+        private void Start()
+        {
+            PhoneMotion.Warm();
+            Show(GameState.Menu);
+        }
 
         // ---------------------------------------------------------------- menu + setup
 
         public void OnPlayButton()
         {
-            setupPanel.Open(Player1Name, Player2Name, roundCount, category);
+            setupPanel.Open(Player1Name, Player2Name, category);
             Show(GameState.Setup);
         }
 
         public void OnSetupBack() => Show(GameState.Menu);
 
-        public void OnSetupConfirmed(string firstName, string secondName, int rounds, ChallengeCategory selectedCategory)
+        public void OnSetupConfirmed(string firstName, string secondName, ChallengeCategory selectedCategory)
         {
-            player1Name = string.IsNullOrWhiteSpace(firstName) ? "Joueur 1" : firstName.Trim();
-            player2Name = string.IsNullOrWhiteSpace(secondName) ? "Joueur 2" : secondName.Trim();
-            roundCount = rounds == 1 || rounds == 3 || rounds == 5 ? rounds : 3;
+            player1Name = string.IsNullOrWhiteSpace(firstName) ? "Player 1" : firstName.Trim();
+            player2Name = string.IsNullOrWhiteSpace(secondName) ? "Player 2" : secondName.Trim();
             category = selectedCategory;
             StartMatch();
         }
@@ -160,34 +166,42 @@ namespace SoundCopy
 
         private void StartMatch()
         {
+            roundCount = Mathf.Max(1, roundsPerMatch);
             currentRound = 1;
             player1Points = player2Points = 0;
-            player1JokerUsed = player2JokerUsed = false;
             history.Clear();
             BeginRound();
         }
 
         private void BeginRound()
         {
-            player1JokerThisRound = player2JokerThisRound = false;
-            player1RecordedThisRound = false;
+            player1RecordedThisRound = player2RecordedThisRound = false;
+            firstPlayer = 1;
+            doubleRound = false;
             player1Recording = player2Recording = null;
             roundPanel.Refresh();
             Show(GameState.Round);
         }
 
-        // Called by the Round screen once the player has shaken the phone enough.
-        public bool ArmJoker(int player)
-        {
-            if (JokerUsed(player)) return false;
-            if (player == 1) { player1JokerUsed = true; player1JokerThisRound = true; }
-            else { player2JokerUsed = true; player2JokerThisRound = true; }
-            Haptics.Pulse(200);
-            return true;
-        }
-
+        // Round screen button: spin the phone first (if the spin screen exists), then the video.
         public void OnWatchVideo()
         {
+            if (spinPanel != null)
+            {
+                spinPanel.Begin();
+                Show(GameState.Spin);
+                return;
+            }
+            OnSpinDone(1, false);
+        }
+
+        public void OnSpinBack() => Show(GameState.Round);
+
+        // From the spin screen: who goes first and whether this is a x2 round.
+        public void OnSpinDone(int first, bool doubled)
+        {
+            firstPlayer = first == 2 ? 2 : 1;
+            doubleRound = doubled;
             Show(GameState.Video);
             videoPanel.PlayForCategory(category);
             currentReferenceId = videoPanel.CurrentClipId;
@@ -196,11 +210,16 @@ namespace SoundCopy
 
         public void OnVideoBack() => Show(GameState.Round);
 
-        public void OnVideoContinue() => ShowHandOver(player1RecordedThisRound ? 2 : 1);
+        int SecondPlayer => 3 - firstPlayer;
+
+        // Next player who still has to imitate this round.
+        int NextToRecord => !Recorded(firstPlayer) ? firstPlayer : SecondPlayer;
+
+        public void OnVideoContinue() => ShowHandOver(NextToRecord);
 
         private void ShowHandOver(int player)
         {
-            handOverPanel.Prepare(player, PlayerName(player), JokerActive(player));
+            handOverPanel.Prepare(player, PlayerName(player), doubleRound);
             Show(GameState.HandOver);
         }
 
@@ -237,24 +256,29 @@ namespace SoundCopy
 
         public void OnRecordingDone(int player)
         {
-            if (player == 1)
+            if (player == 1) player1RecordedThisRound = true;
+            else player2RecordedThisRound = true;
+            if (!Recorded(1) || !Recorded(2))
             {
-                player1RecordedThisRound = true;
-                ShowHandOver(2);
+                ShowHandOver(NextToRecord);
                 return;
             }
             Show(GameState.AIAnalysis);
             aiAnalysisPanel.BeginAnalysis();
         }
 
-        public void OnAnalysisBack() => ShowHandOver(2);
+        // "Redo" after an AI error: the second player records again.
+        public void OnAnalysisBack()
+        {
+            if (SecondPlayer == 1) player1RecordedThisRound = false; else player2RecordedThisRound = false;
+            ShowHandOver(SecondPlayer);
+        }
 
         // Called by the analysis screen with the AI result.
         public void RegisterRoundResult(AIJudgeResult result)
         {
             int winner = result.Winner;
-            bool joker = winner == 1 ? player1JokerThisRound : winner == 2 && player2JokerThisRound;
-            int points = winner == 0 ? 0 : pointsPerRound * (joker ? 2 : 1);
+            int points = winner == 0 ? 0 : pointsPerRound * (doubleRound ? 2 : 1);
             if (winner == 1) player1Points += points;
             else if (winner == 2) player2Points += points;
 
@@ -267,8 +291,8 @@ namespace SoundCopy
                 player1TooQuiet = result.Player1TooQuiet,
                 player2TooQuiet = result.Player2TooQuiet,
                 winner = winner,
-                player1Joker = player1JokerThisRound,
-                player2Joker = player2JokerThisRound,
+                firstPlayer = firstPlayer,
+                doubled = doubleRound,
                 points = points,
             });
 
@@ -300,8 +324,8 @@ namespace SoundCopy
             }
             int winner = MatchWinner;
             string detail = winner == 0
-                ? $"Égalité {player1Points} – {player2Points}"
-                : $"{PlayerName(winner)} gagne {Points(winner)} – {Points(3 - winner)}";
+                ? $"Draw {player1Points} – {player2Points}"
+                : $"{PlayerName(winner)} wins {Points(winner)} – {Points(3 - winner)}";
             float accuracy = winner == 0 ? Mathf.Max(AverageAccuracy(1), AverageAccuracy(2)) : AverageAccuracy(winner);
             int stars = accuracy >= 70f ? 3 : accuracy >= 45f ? 2 : 1;
             MiniGameBridge.Win(detail, stars, Mathf.RoundToInt(accuracy), 0.2f);
@@ -328,8 +352,9 @@ namespace SoundCopy
             SetVisible(aiAnalysisPanel, state == GameState.AIAnalysis);
             SetVisible(verdictPanel, state == GameState.Verdict);
             SetVisible(resultsPanel, state == GameState.Results);
+            SetVisible(spinPanel, state == GameState.Spin);
             if (pauseOverlay != null)
-                pauseOverlay.SetAvailable(state == GameState.Round || state == GameState.Video || state == GameState.HandOver || state == GameState.Verdict);
+                pauseOverlay.SetAvailable(state == GameState.Round || state == GameState.Spin || state == GameState.Video || state == GameState.HandOver || state == GameState.Verdict);
         }
 
         private static void SetVisible(Component panel, bool visible)

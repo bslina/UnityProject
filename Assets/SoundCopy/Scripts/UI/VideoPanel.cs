@@ -59,10 +59,11 @@ namespace SoundCopy.UI
         {
             UIFactory.ClearChildren(transform);
             var page = MobileUI.Page(transform, SoundCopyTheme.DarkPlum);
-            backButton = MobileUI.TopBar(page, "ÉCOUTE LE SON", true, SoundCopyTheme.Cream, out _, out _);
+            backButton = MobileUI.TopBar(page, "LISTEN TO THE SOUND", true, SoundCopyTheme.Cream, out _, out _);
 
-            // Square frame: the video is letterboxed inside, whatever its shape.
-            var frame = MobileUI.Row(page, "VideoFrame", 200f, 968f);
+            // Left: square frame as tall as the screen allows (the video is letterboxed inside).
+            const float frameTop = 160f, frameBottom = 40f, frameSize = 1080f - frameTop - frameBottom;
+            var frame = MobileUI.TopLeft(page, "VideoFrame", MobileUI.Side, frameTop, frameSize, frameSize);
             MobileUI.Card(frame.gameObject, SoundCopyTheme.Ink, 44f);
             UIFactory.AddNativeOutline(frame.gameObject, SoundCopyTheme.Cream, 4f);
             var imageObject = UIFactory.CreateRect("VideoImage", frame, Vector2.zero, Vector2.one, new Vector2(16f, 16f), new Vector2(-16f, -16f));
@@ -76,16 +77,22 @@ namespace SoundCopy.UI
             videoPlayer.renderMode = VideoRenderMode.RenderTexture;
             videoPlayer.aspectRatio = VideoAspectRatio.FitInside;
 
-            var status = MobileUI.Row(page, "Status", 1200f, 80f);
-            statusText = MobileUI.Text(status, "Text", "Prêt à lancer le son", 48f, SoundCopyTheme.Lime, TextAlignmentOptions.Center, true);
-            var hint = MobileUI.Row(page, "Hint", 1290f, 110f);
-            var hintText = MobileUI.Text(hint, "Text", "Mémorise bien le rythme et la voix :\nvous allez devoir l'imiter !", 36f, new Color(1f, 1f, 1f, 0.7f), TextAlignmentOptions.Center);
+            // Right: status, tip and the two actions.
+            float rightStart = MobileUI.Side + frameSize + 64f;
+            var side = UIFactory.CreateRect("Side", page, Vector2.zero, Vector2.one, new Vector2(rightStart, 0f), Vector2.zero);
+            var status = MobileUI.Row(side.transform, "Status", 260f, 110f, 0f);
+            statusText = MobileUI.Text(status, "Text", "Ready to play the sound", 64f, SoundCopyTheme.Lime, TextAlignmentOptions.MidlineLeft, true);
+            statusText.enableAutoSizing = true;
+            statusText.fontSizeMin = 40f;
+            statusText.fontSizeMax = 64f;
+            var hint = MobileUI.Row(side.transform, "Hint", 390f, 130f, 0f);
+            var hintText = MobileUI.Text(hint, "Text", "Remember the rhythm and the voice:\nyou'll have to copy it!", 36f, new Color(1f, 1f, 1f, 0.7f), TextAlignmentOptions.TopLeft);
             hintText.textWrappingMode = TextWrappingModes.Normal;
 
-            var replay = MobileUI.BottomRow(page, "ReplayAction", MobileUI.BottomMargin + MobileUI.ButtonHeight + 30f, 140f);
-            replayButton = MobileUI.BigButton(replay, "ReplayButton", "REVOIR", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 46f);
-            var next = MobileUI.BottomRow(page, "ContinueAction", MobileUI.BottomMargin, MobileUI.ButtonHeight);
-            continueButton = MobileUI.BigButton(next, "ContinueButton", "C'EST PARTI  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink);
+            var replay = MobileUI.BottomRight(page, "ReplayAction", MobileUI.ButtonWidth, 120f, MobileUI.Side, MobileUI.BottomMargin + MobileUI.ButtonHeight + 28f);
+            replayButton = MobileUI.BigButton(replay, "ReplayButton", "REPLAY", SoundCopyTheme.Cream, SoundCopyTheme.Ink, 44f);
+            var next = MobileUI.BottomRight(page, "ContinueAction");
+            continueButton = MobileUI.BigButton(next, "ContinueButton", "LET'S GO  >", SoundCopyTheme.Lime, SoundCopyTheme.Ink);
             continueButton.interactable = false;
         }
 
@@ -94,7 +101,7 @@ namespace SoundCopy.UI
             VideoClip clip = ChooseClip(category);
             if (clip == null)
             {
-                statusText.text = "Aucune vidéo pour cette catégorie";
+                statusText.text = "No video for this category";
                 continueButton.interactable = false;
                 return;
             }
@@ -102,7 +109,7 @@ namespace SoundCopy.UI
             lastClip = clip;
             videoPlayer.clip = clip;
             continueButton.interactable = false;
-            statusText.text = "Écoute bien…";
+            statusText.text = "Listen carefully…";
             videoPlayer.Play();
         }
 
@@ -139,13 +146,13 @@ namespace SoundCopy.UI
 
         private void OnVideoFinished(VideoPlayer source)
         {
-            statusText.text = "À vous de l'imiter !";
+            statusText.text = "Your turn to copy it!";
             continueButton.interactable = true;
         }
 
         private void OnVideoError(VideoPlayer source, string message)
         {
-            statusText.text = "Impossible de lire cette vidéo";
+            statusText.text = "Can't play this video";
             continueButton.interactable = lastClip != null; // the AI can still use the reference audio
             Debug.LogError("Sound Copy video error: " + message);
         }
@@ -153,7 +160,7 @@ namespace SoundCopy.UI
         private void Replay()
         {
             if (videoPlayer.clip == null) return;
-            statusText.text = "Écoute bien…";
+            statusText.text = "Listen carefully…";
             videoPlayer.Stop();
             videoPlayer.Play();
         }
