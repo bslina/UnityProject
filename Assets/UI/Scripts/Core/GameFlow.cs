@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -345,9 +346,40 @@ namespace GameUI
 
         static void EnsureEventSystem()
         {
-            if (FindAnyObjectByType<EventSystem>() != null) return;
-            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-            Debug.Log("GameUI: no EventSystem in this scene, created one.");
+            if (FindAnyObjectByType<EventSystem>() == null)
+            {
+                new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+                Debug.Log("GameUI: no EventSystem in this scene, created one.");
+            }
+            GiveUIModulesOwnActions();
+        }
+
+        // Every menu scene has its own EventSystem, and by default they all share ONE input actions
+        // asset. When a scene change destroys one module and enables the next while a finger is still
+        // on the screen, the Input System is left with stale listeners on that shared asset
+        // ("Map index out of range in ProcessControlStateChange" + NullReferenceException, mostly in
+        // the Device Simulator). A private copy per module keeps their states apart.
+        static readonly List<(InputSystemUIInputModule module, InputActionAsset copy)> uiActionCopies =
+            new List<(InputSystemUIInputModule, InputActionAsset)>();
+
+        static void GiveUIModulesOwnActions()
+        {
+            // Free the copies of modules that went away with their scene.
+            for (int i = uiActionCopies.Count - 1; i >= 0; i--)
+            {
+                if (uiActionCopies[i].module != null) continue;
+                if (uiActionCopies[i].copy != null) Destroy(uiActionCopies[i].copy);
+                uiActionCopies.RemoveAt(i);
+            }
+
+            foreach (var module in FindObjectsByType<InputSystemUIInputModule>(FindObjectsSortMode.None))
+            {
+                if (module.actionsAsset == null || uiActionCopies.Exists(c => c.module == module)) continue;
+                var copy = Instantiate(module.actionsAsset);
+                copy.name = module.actionsAsset.name + " (" + module.gameObject.scene.name + ")";
+                module.actionsAsset = copy;   // the module re-binds its point/click/scroll actions to the copy
+                uiActionCopies.Add((module, copy));
+            }
         }
     }
 }

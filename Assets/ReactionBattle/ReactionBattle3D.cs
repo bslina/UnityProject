@@ -125,11 +125,36 @@ public class ReactionBattle3D : MonoBehaviour
     readonly List<Vector2> pointerDowns = new List<Vector2>();
 
     // Auto-create so you never have to attach anything.
+    // Pocket Jungle: only in this minigame's own scene (the app starts on the main menu and loads
+    // other scenes later, so it listens to every scene load instead of only the first one).
+    public const string SceneName = "ReactionBattle";
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
     {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+        TryCreate(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+    }
+
+    static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        if (mode == UnityEngine.SceneManagement.LoadSceneMode.Single) TryCreate(scene);
+    }
+
+    static void TryCreate(UnityEngine.SceneManagement.Scene scene)
+    {
+        if (scene.name != SceneName) return;
         if (FindAnyObjectByType<ReactionBattle3D>() == null)
             new GameObject("ReactionBattle3D").AddComponent<ReactionBattle3D>();
+    }
+
+    // Pocket Jungle: the match is over, show the shared Win screen (after a moment to see the result).
+    void ReportMatch(int winner)
+    {
+        if (!GameUI.MiniGameBridge.IsAvailable) return;
+        int best = Mathf.Max(score1, score2), other = Mathf.Min(score1, score2);
+        GameUI.MiniGameBridge.Win("Player " + winner + " wins " + best + " - " + other + "!", 3, best, 2.5f);
     }
 
     void Awake()
@@ -773,6 +798,7 @@ public class ReactionBattle3D : MonoBehaviour
             matchOver = true;
             SetVisual("over");
             SetTexts("PLAYER " + winner + "\nWINS THE MATCH!", "Tap the lamp\nfor a new game");
+            ReportMatch(winner);
             return;
         }
 
@@ -862,6 +888,7 @@ public class ReactionBattle3D : MonoBehaviour
                 state = State.RoundOver;
                 SetVisual("over");
                 SetTexts("PLAYER " + player + "\nWINS THE MATCH!", "Tap the lamp\nfor a new game");
+                ReportMatch(player);
                 yield break;
             }
             SetVisual("idle");

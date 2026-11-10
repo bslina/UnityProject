@@ -56,15 +56,27 @@ MonoBehaviour:
     resultCharacter: {fileID: 0}
     winLine: 
     loseLine: 
-  - id: minigame_4
-    displayName: Mini Game 4
-    description: Coming soon
-    sceneName: 
+  - id: reaction_battle
+    displayName: Reaction Battle
+    description: 'Two players, one lamp: be the fastest to press when the signal comes!'
+    sceneName: ReactionBattle
     icon: {fileID: 0}
     music: {fileID: 0}
-    comingSoon: 1
-    orientation: 0
+    comingSoon: 0
+    orientation: 1
     hidePauseButton: 0
+    resultCharacter: {fileID: 0}
+    winLine: 
+    loseLine: 
+  - id: duo_road
+    displayName: Duo Road
+    description: 'One drives, one shoots: survive the road together, then race solo and by voice!'
+    sceneName: DuoRoad
+    icon: {fileID: 0}
+    music: {fileID: 0}
+    comingSoon: 0
+    orientation: 0
+    hidePauseButton: 1
     resultCharacter: {fileID: 0}
     winLine: 
     loseLine: 
