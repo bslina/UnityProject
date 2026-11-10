@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pocket Jungle - Games and Sensors Guide</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  :root {
+    --ink: #1f2a1c; --muted: #5b6656; --green: #3f8f2a; --green-soft: #e9f5e1; --line: #cfdcc6;
+    --orange: #d9741c; --orange-soft: #fdf0e3; --blue: #2d6fd6; --blue-soft: #e8f0fc; --red: #c0392b;
+  }
+  html, body { background: #fff; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 10.6pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 22pt; color: var(--green); margin: 0 0 4mm; line-height: 1.15; }
+  h2 { font-size: 16pt; color: var(--green); border-bottom: 2px solid var(--line); padding-bottom: 2mm; margin: 0 0 4mm; }
+  h3 { font-size: 12.5pt; margin: 6mm 0 2mm; color: var(--ink); }
+  h4 { font-size: 11pt; margin: 4mm 0 1.5mm; color: var(--green); }
+  p { margin: 0 0 2.5mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin-bottom: 1mm; }
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 9.8pt; page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  th { background: var(--green-soft); text-align: left; padding: 1.6mm 2mm; border: 1px solid var(--line); }
+  td { padding: 1.6mm 2mm; border: 1px solid var(--line); vertical-align: top; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .box { border-radius: 3mm; padding: 3mm 4mm; margin: 2mm 0 4mm; page-break-inside: avoid; }
+  .simple { background: var(--green-soft); border-left: 4px solid var(--green); }
+  .tip { background: var(--blue-soft); border-left: 4px solid var(--blue); }
+  .warn { background: var(--orange-soft); border-left: 4px solid var(--orange); }
+  .box b.label { display: block; margin-bottom: 1mm; }
+  code { font-family: Consolas, monospace; font-size: 9.3pt; background: #f2f4f0; padding: 0 1mm; border-radius: 1mm; }
+  .muted { color: var(--muted); }
+  .cover { text-align: center; padding-top: 45mm; }
+  .cover h1 { font-size: 34pt; }
+  .cover .sub { font-size: 15pt; color: var(--muted); margin-bottom: 14mm; }
+  .cover table { width: 75%; margin: 0 auto; font-size: 11pt; }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5mm; margin: 2mm 0 4mm; font-size: 9.5pt; }
+  .flow span.step { background: var(--green-soft); border: 1px solid var(--line); border-radius: 2mm; padding: 1.2mm 2.5mm; }
+  .flow span.arrow { color: var(--muted); }
+  .qa { page-break-inside: avoid; margin-bottom: 3mm; }
+  .qa .q { font-weight: 700; color: var(--green); }
+  .qa .a { margin-left: 4mm; }
+  .toc li { margin-bottom: 1.5mm; }
+  .tag { display: inline-block; font-size: 8.5pt; padding: 0 2mm; border-radius: 2mm; background: #eef1ec; color: var(--muted); margin-left: 1mm; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ COVER -->
+<section class="page cover">
+  <h1>Pocket Jungle</h1>
+  <div class="sub">Minigames, phone sensors and validation guide</div>
+  <table>
+    <tr><th>Game</th><td>Pocket Jungle: a collection of 3 phone minigames (plus 1 empty slot for a future game)</td></tr>
+    <tr><th>Minigames</th><td>Egg Run (Lina) · Sound Copy (Ons) · Photo Challenge (Eya)</td></tr>
+    <tr><th>Engine</th><td>Unity 6 (6000.6.3f1), Universal Render Pipeline (URP)</td></tr>
+    <tr><th>Platform</th><td>Android phone, held sideways (landscape)</td></tr>
+    <tr><th>Tested phone</th><td>Samsung Galaxy A17</td></tr>
+  </table>
+  <p class="muted" style="margin-top:14mm">Everything here is explained in simple words first, then with the exact technical details,<br>so you can answer both easy and deep questions during the validation.</p>
+</section>
+
+<!-- ============================================================ CONTENTS -->
+<section class="page">
+  <h2>Contents</h2>
+  <ol class="toc">
+    <li><b>The big picture</b>: what Pocket Jungle is and how the parts fit together</li>
+    <li><b>Phone sensors explained simply</b>: what each sensor measures, and which game uses it</li>
+    <li><b>Egg Run</b>: tilt, walk, shake the bird off, and block the sun with the camera</li>
+    <li><b>Sound Copy</b>: imitate a sound; microphone, raise-to-record, spin-the-phone and the AI judge</li>
+    <li><b>Photo Challenge</b>: find an object and photograph it; camera and image AI</li>
+    <li><b>Shared systems</b>: menus, settings, saving, pause, sound and music</li>
+    <li><b>Testing tools and building the app</b></li>
+    <li><b>Validation questions and answers</b>: everything that can be asked</li>
+    <li><b>Glossary</b>: every technical word in one sentence</li>
+  </ol>
+
+  <div class="box simple">
+    <b class="label">The whole project in 4 sentences</b>
+    Pocket Jungle is a mobile game made of small games (minigames). Each minigame uses the phone's sensors as the controller instead of only tapping the screen: tilting, shaking, covering the camera, raising the phone like a microphone, spinning it on a table and taking photos. A shared menu system (main menu, level list, settings, pause, win and lose screens) connects the minigames into one game. Two of the minigames use artificial intelligence that runs directly on the phone, with no internet needed.
+  </div>
+
+  <h3>Who made what</h3>
+  <table>
+    <tr><th>Part</th><th>Main author</th><th>Sensors used</th></tr>
+    <tr><td>Egg Run</td><td>Lina</td><td>Gravity sensor / accelerometer (tilt), accelerometer (shake), front camera + light + proximity (sun shade), touchscreen, vibration</td></tr>
+    <tr><td>Sound Copy</td><td>Ons</td><td>Microphone, accelerometer (raise to record), gyroscope (spin the phone), touchscreen, vibration</td></tr>
+    <tr><td>Photo Challenge</td><td>Eya</td><td>Rear camera, touchscreen, vibration</td></tr>
+    <tr><td>Shared menus and integration</td><td>Lina</td><td>Touchscreen, Android back button</td></tr>
+  </table>
+</section>
+
+<!-- ============================================================ 1. BIG PICTURE -->
+<section class="page">
+  <h2>1. The big picture</h2>
+
+  <h3>How a player moves through the game</h3>
+  <div class="flow">
+    <span class="step">Main menu</span><span class="arrow">→</span>
+    <span class="step">Play → Level list</span><span class="arrow">→</span>
+    <span class="step">Pick a minigame</span><span class="arrow">→</span>
+    <span class="step">Play it</span><span class="arrow">→</span>
+    <span class="step">Win screen / Lose screen</span><span class="arrow">→</span>
+    <span class="step">Next game · Retry · Levels · Menu</span>
+  </div>
+  <p>During a minigame the player can open the <b>pause menu</b> (Resume, Restart, Settings, Levels, Main menu). <b>Settings</b> can also be opened from the main menu and the level list. Every minigame is unlocked from the start: the player can pick any of them.</p>
+
+  <h3>The main building blocks (simple version)</h3>
+  <table>
+    <tr><th>Block</th><th>What it does, simply</th></tr>
+    <tr><td><b>Menu scenes</b></td><td>Each menu is its own Unity scene: <code>MainMenu</code>, <code>LevelSelect</code>, <code>SettingsMenu</code>, <code>PauseMenu</code>, <code>WinMenu</code>, <code>LoseMenu</code>. Pause and Settings open <i>on top of</i> the current game, so the game is not lost while paused.</td></tr>
+    <tr><td><b>GameFlow</b> (the "brain")</td><td>One object that stays alive for the whole game. It loads scenes with a black fade, handles pause, the Android back button, the screen orientation, music, and shows the Win/Lose screens.</td></tr>
+    <tr><td><b>MiniGameBridge</b></td><td>The only thing a minigame needs to talk to the menus. A minigame just calls <code>MiniGameBridge.Win(...)</code> or <code>MiniGameBridge.Lose(...)</code>, and the menus do the rest.</td></tr>
+    <tr><td><b>MiniGame Registry</b></td><td>The list of minigames shown in the level menu: name, description, scene, music, orientation (all landscape), and whether to hide the shared pause button.</td></tr>
+    <tr><td><b>Settings</b> (GameSettings)</td><td>Music volume, sound-effects volume, vibration on/off, invert tilt, tilt sensitivity, sun events on/off (Egg Run), show debug info, reset progress. Saved on the phone.</td></tr>
+    <tr><td><b>Saves</b> (SaveData)</td><td>For each minigame: completed or not, best number of stars (0 to 3) and best score. Saved on the phone with Unity's <code>PlayerPrefs</code>.</td></tr>
+    <tr><td><b>Audio</b></td><td>Music for the menus and for each minigame, click sounds on every button, win/lose jingles and game sound effects. All sounds are original, generated by a script.</td></tr>
+  </table>
+
+  <div class="box tip">
+    <b class="label">Why this design?</b>
+    Three different people made three different games. The bridge + registry design means a minigame does not need to know anything about the menus: it reports "won" or "lost" and the shared system shows the right screen, saves the stars and plays the right music. Adding a fourth game is just: add its scene, add one entry to the registry, call <code>Win</code>/<code>Lose</code>.
+  </div>
+
+  <h3>How stars and scores are given</h3>
+  <table>
+    <tr><th>Minigame</th><th>3 stars</th><th>2 stars</th><th>1 star</th><th>Saved score</th></tr>
+    <tr><td>Egg Run</td><td>finish with ≥ 30 s left</td><td>≥ 15 s left</td><td>finish in time</td><td>seconds left × 10</td></tr>
+    <tr><td>Sound Copy</td><td>winner's average AI accuracy ≥ 70%</td><td>≥ 45%</td><td>below 45%</td><td>winner's average accuracy</td></tr>
+    <tr><td>Photo Challenge</td><td>winner found 3 objects</td><td>2 objects</td><td>0–1 object</td><td>winner's points</td></tr>
+  </table>
+</section>
+
+<!-- ============================================================ 2. SENSORS -->
+<section class="page">
+  <h2>2. Phone sensors explained simply</h2>
+  <p>A <b>sensor</b> is a tiny part inside the phone that measures something about the real world and gives the game a number. The game reads these numbers many times per second and turns them into actions.</p>
+
+  <table>
+    <tr><th style="width:21%">Sensor</th><th>What it measures (simple words)</th><th style="width:25%">Used in</th></tr>
+    <tr><td><b>Accelerometer</b></td><td>How the phone is being pushed or moved, <i>including gravity</i>. When the phone is still, it only "feels" gravity pulling down, so it tells which way is down. When you shake it, the numbers jump.</td><td>Egg Run (tilt backup, shake), Sound Copy (raise to record, is the phone flat?)</td></tr>
+    <tr><td><b>Gravity sensor</b></td><td>Only the direction of gravity, already cleaned of shaking. It is a "virtual" sensor: Android computes it from the accelerometer and gyroscope. Best for tilting.</td><td>Egg Run (tilt the spoon)</td></tr>
+    <tr><td><b>Gyroscope</b></td><td>How fast the phone is <i>turning</i> (rotation speed), in every direction.</td><td>Sound Copy (spin the phone on the table)</td></tr>
+    <tr><td><b>Microphone</b></td><td>Sound. The game records the sound wave as numbers.</td><td>Sound Copy (record the imitations)</td></tr>
+    <tr><td><b>Camera</b> (front / rear)</td><td>Images. A picture is a grid of coloured dots (pixels).</td><td>Egg Run (front camera: is it covered?), Photo Challenge (rear camera: photos)</td></tr>
+    <tr><td><b>Light sensor</b></td><td>How bright it is around the phone, in lux.</td><td>Egg Run (backup sun-shade detection)</td></tr>
+    <tr><td><b>Proximity sensor</b></td><td>Whether something is very close to the top of the phone ("near" / "far"), like your ear during a call.</td><td>Egg Run (backup sun-shade detection)</td></tr>
+    <tr><td><b>Touchscreen</b></td><td>Where and when fingers touch the screen.</td><td>All games (buttons, walk button)</td></tr>
+    <tr><td><b>Vibration motor</b></td><td>Not a sensor but an <i>actuator</i>: it makes the phone buzz. Used as feedback you can feel.</td><td>All games</td></tr>
+  </table>
+
+  <div class="box warn">
+    <b class="label">Important discovery: "virtual" sensors on budget phones</b>
+    On our test phone (Samsung Galaxy A17), Samsung lists the light and proximity sensors as <b>virtual</b>: there is no real sensor chip behind the glass, Android only estimates the value. When we covered the top of the phone, the light reading barely changed. That is why Egg Run's "cover the sun" mechanic uses the <b>front camera</b> as its main signal (a thumb on the lens turns the picture dark), and keeps the light and proximity sensors only as backups.
+  </div>
+
+  <h3>How Unity reads the sensors</h3>
+  <ul>
+    <li>The project uses Unity's <b>new Input System</b> package (the old input system is turned off, because Android builds should use only one).</li>
+    <li>Sensors are <b>off by default</b> to save battery. Each script turns on the sensor it needs (<code>InputSystem.EnableDevice</code>) and reads it every frame.</li>
+    <li>The camera is read with <code>WebCamTexture</code> and the microphone with Unity's <code>Microphone</code> class.</li>
+    <li>On Android, the <b>camera and microphone need permission</b>. The game asks the first time (a system pop-up). If the player refuses, the game shows a message or a fallback button instead of crashing.</li>
+    <li>Raw sensor values are noisy. The scripts <b>smooth</b> them (keep a running average) and use <b>thresholds with a "hold time"</b> so one random spike does not trigger an action.</li>
+  </ul>
+
+  <h3>Common tricks used everywhere (worth knowing for questions)</h3>
+  <table>
+    <tr><th>Trick</th><th>Simple explanation</th><th>Where</th></tr>
+    <tr><td>Smoothing</td><td>Blend the new reading with the previous one so the value moves gently instead of jumping.</td><td>Tilt, gravity in Sound Copy, camera room brightness</td></tr>
+    <tr><td>Dead zone</td><td>Ignore tiny movements (under 1°) so a still hand does not move the spoon.</td><td>Egg Run tilt</td></tr>
+    <tr><td>Calibration</td><td>Take the way the player holds the phone at the start as "level".</td><td>Egg Run tilt</td></tr>
+    <tr><td>Hysteresis</td><td>Use two thresholds (one to switch on, a different one to switch off) so a value hovering near the limit does not flicker.</td><td>Light sensor, camera covered</td></tr>
+    <tr><td>Hold time / debounce</td><td>The condition must stay true for a short time (0.12–0.5 s) before it counts.</td><td>Cover detection, raise to record, spin stop</td></tr>
+    <tr><td>Fallbacks</td><td>If a sensor is missing (in the Unity Editor, or a phone without it), use a keyboard key or an on-screen button instead.</td><td>Everywhere</td></tr>
+  </table>
+</section>
+
+<!-- ============================================================ 3. EGG RUN -->
+<section class="page">
+  <h2>3. Egg Run <span class="tag">by Lina</span></h2>
+  <div class="box simple">
+    <b class="label">In one sentence</b>
+    You carry an egg on a spoon and walk to the finish flag before 60 seconds run out. Tilt the phone to keep the egg balanced, shake the phone to scare away a bird, and cover the front camera to shade the egg from the sun.
+  </div>
+
+  <h3>How to play</h3>
+  <ul>
+    <li><b>Start</b>: press Start. At that moment the game records how you hold the phone and calls it "level" (calibration).</li>
+    <li><b>Walk</b>: hold the round walk button (bottom-right). The player walks at 1.6 m/s, speeding up and slowing down smoothly.</li>
+    <li><b>Balance</b>: tilt the phone left/right; the spoon tilts the same way and the egg rolls by real physics.</li>
+    <li><b>Win</b>: reach the finish line. <b>Lose</b>: the egg falls (touches anything that is not the spoon), the egg gets cooked by the sun, or the 60 s run out.</li>
+  </ul>
+
+  <h3>Mechanic 1: Tilt to balance <span class="tag">gravity sensor, accelerometer backup</span></h3>
+  <p><b>Simply:</b> the phone knows which way is down. If you tilt it to the right, "down" moves to one side of the phone, and the game turns that into an angle for the spoon.</p>
+  <ul>
+    <li>Reads the <b>gravity sensor</b>; if the phone has none, the <b>accelerometer</b>; in the Editor, the <b>A/D or arrow keys</b>.</li>
+    <li>Angle = <code>asin(gravity.x / |gravity|)</code>, i.e. the side-to-side tilt in degrees. Works whether the phone is upright or flatter.</li>
+    <li>Calibrated at Start, dead zone 1°, limited to ±45°, smoothed (smoothing 12).</li>
+    <li>Settings: <b>Invert tilt</b> (for phones that report the other way) and <b>Tilt sensitivity</b> (×0.5 to ×1.5).</li>
+    <li>The spoon cannot turn faster than 360°/s, so a sensor spike cannot fling the egg.</li>
+  </ul>
+
+  <h3>Mechanic 2: Walking makes the spoon unsteady</h3>
+  <p><b>Simply:</b> like a real egg-and-spoon race, walking shakes your hand, so you must keep correcting with the tilt. If you never tilt, the egg falls.</p>
+  <table>
+    <tr><th>Effect</th><th>Value</th><th>What it feels like</th></tr>
+    <tr><td>Step rocking</td><td>18° in rhythm with steps</td><td>left-right rock each step</td></tr>
+    <tr><td>Sway</td><td>10°, random</td><td>shaky hand</td></tr>
+    <tr><td>Drift</td><td>up to 12°, slow</td><td>a lean that lasts seconds: the main reason the egg rolls off if you don't react</td></tr>
+    <tr><td>Stumble</td><td>10–18° every 2.5–5 s of walking</td><td>a sudden lurch, with a small vibration and sound</td></tr>
+    <tr><td>Bounce</td><td>0.08 m up/down</td><td>steps lift the spoon</td></tr>
+  </table>
+  <p>All of these are multiplied by <b>Walk Difficulty</b> (0 to 2) and only happen while walking: standing still is a way to recover.</p>
+
+  <h3>Mechanic 3: The bird <span class="tag">accelerometer (shake)</span></h3>
+  <p><b>Simply:</b> a bird flies onto the spoon rim, its weight tips the spoon, and it pecks the egg. Shake the phone to scare it away.</p>
+  <ul>
+    <li>Comes in when the player passes x = 12, 28 and 44 m. Lands in 1.2 s.</li>
+    <li>Its weight tips the spoon 6°, plus 3° per second it stays, up to 20°. It pecks the egg every 1.5 s.</li>
+    <li><b>Shake detection</b>: the script separates slow movement (gravity) from fast movement (jolts). A "jerk" is a jolt stronger than 0.8 g; <b>3 jerks within 0.8 s</b> = a shake. After a shake, there is a 0.5 s cooldown.</li>
+    <li>While shaking, the tilt is <b>frozen</b> (held at its last value for 0.35 s after the last jerk), so shaking to scare the bird does not throw the egg off.</li>
+    <li>Editor: press <b>S</b> to fake a shake.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h3>Mechanic 4: Sun and heat <span class="tag">front camera (main), light + proximity sensors (backup)</span></h3>
+  <p><b>Simply:</b> every so often the sun comes out. The screen becomes almost white (you can't see the egg) and the egg starts to cook. Put your thumb over the front camera to make shade: the glare fades so you can see again, and the egg cools down. If the heat bar fills up, the egg is cooked and you lose.</p>
+  <table>
+    <tr><th>Step</th><th>Timing</th><th>What happens</th></tr>
+    <tr><td>First sun</td><td>8–12 s after the start</td><td>then every 9–15 s; never in the last 6 s</td></tr>
+    <tr><td>Warning</td><td>1.5 s</td><td>a sun rises in the corner, the screen brightens, the phone buzzes twice, a chime plays</td></tr>
+    <tr><td>Sun</td><td>5–8 s</td><td>glare covers 96% of the screen; covered = only 10% glare plus a dark "shadow"</td></tr>
+    <tr><td>Heat</td><td>4.5 s of full sun to cook</td><td>cools fully in 5 s of shade; a heat bar under the timer shows it, the egg turns brown, a sizzle sound plays</td></tr>
+  </table>
+
+  <h4>How "covered" is detected (camera)</h4>
+  <ul>
+    <li>The front camera runs at a tiny size (160×120). Ten times per second, the script measures the picture's <b>average brightness</b> and <b>contrast</b> (how different the pixels are). Nothing is saved or shown.</li>
+    <li>It learns the room's normal brightness slowly (6 s to follow darker, 0.5 s to follow brighter), and never while covered.</li>
+    <li><b>Covered</b> if: brightness is under 40% of the room's brightness, <i>or</i> the picture is almost black (under 0.06), <i>or</i> the picture is flat and dim (contrast under 0.035 and dimmer than the room). The last rule matters because a phone camera brightens itself automatically after a few seconds behind a thumb.</li>
+    <li>Uncovered again only above 55% (hysteresis). A cover must last 0.12 s to count.</li>
+  </ul>
+  <h4>Backups and fallbacks</h4>
+  <ul>
+    <li><b>Light sensor</b>: covered when light drops under 25% of the room's level (uncovered above 40%). Not used in a dark room (under 12 lux).</li>
+    <li><b>Proximity sensor</b>: covered when it reports "near".</li>
+    <li>While the camera works, the light and proximity sensors are ignored (they can be virtual and unreliable).</li>
+    <li>No camera permission and no usable sensor: an on-screen <b>SHADE</b> button appears (hold it). Editor: hold <b>L</b>.</li>
+    <li>The sun can be switched off in Settings (<b>Sun events</b>).</li>
+  </ul>
+
+  <h3>Vibration and sound in Egg Run</h3>
+  <p>Short buzzes: egg breaks (long buzz), bird lands, bird pecks, sun warning, stumbles, heat danger. Sounds: egg crack, stumble, bird flaps and chirps, sun warning chime, sizzle, plus the Egg Run music loop.</p>
+
+  <h3>Debug helpers</h3>
+  <ul>
+    <li><b>Show debug info</b> (Settings) shows the tilt angle and its source, shake strength, camera brightness and room brightness, light and proximity values, the sun phase and the heat.</li>
+    <li>It also opens a <b>sensor panel</b> listing every sensor the phone exposes, with live values. Useful to prove which sensors exist on a phone.</li>
+  </ul>
+
+  <div class="box tip">
+    <b class="label">Why these sensors make sense here</b>
+    Tilt = balancing a real spoon. Shake = shooing a real bird. Covering the camera = shading your eyes and the egg from the sun with your hand. Each sensor matches a natural real-world gesture, so the player understands it without a tutorial.
+  </div>
+</section>
+
+<!-- ============================================================ 4. SOUND COPY -->
+<section class="page">
+  <h2>4. Sound Copy <span class="tag">by Ons</span></h2>
+  <div class="box simple">
+    <b class="label">In one sentence</b>
+    A 2-player party game on one phone: watch a short meme video, both players imitate its sound into the microphone, and an AI on the phone decides whose imitation is closer to the original.
+  </div>
+
+  <h3>How a match goes (always 3 rounds)</h3>
+  <div class="flow">
+    <span class="step">Home</span><span class="arrow">→</span><span class="step">Setup: names + category</span><span class="arrow">→</span>
+    <span class="step">Round screen</span><span class="arrow">→</span><span class="step">Spin the phone</span><span class="arrow">→</span>
+    <span class="step">Watch the video</span><span class="arrow">→</span><span class="step">Pass phone → record (1st)</span><span class="arrow">→</span>
+    <span class="step">Pass phone → record (2nd)</span><span class="arrow">→</span><span class="step">AI analysis</span><span class="arrow">→</span>
+    <span class="step">Verdict</span><span class="arrow">→</span><span class="step">… 3 rounds … Results</span><span class="arrow">→</span><span class="step">Pocket Jungle Win screen</span>
+  </div>
+  <ul>
+    <li><b>Categories</b>: International (4 videos), Tunisian (3 videos), Mixed (random from both). A video is never repeated twice in a row.</li>
+    <li><b>Points</b>: 1 point for winning a round, 2 on a "x2 round". A tie (AI scores less than 3 points apart) gives no point.</li>
+    <li><b>Match winner</b>: most points; if tied, the higher average AI accuracy; if still within 1%, it is a draw.</li>
+  </ul>
+
+  <h3>Mechanic 1: Spin the phone <span class="tag">gyroscope (+ accelerometer to check the phone is flat)</span></h3>
+  <p><b>Simply:</b> like "spin the bottle". Put the phone flat on the table between the two players (Player 1 on the bottom side of the screen, Player 2 on the top side) and spin it. When it stops, the player the top of the screen points to goes first. A fast spin makes the round a x2 round.</p>
+  <ul>
+    <li>The gyroscope gives the rotation speed around the axis that goes through the screen. The script adds it up over time to know <b>how far the phone turned</b>.</li>
+    <li>"Spinning" starts above 0.6 turns per second. "Stopped" = below 0.15 turns/s for 0.5 s.</li>
+    <li>A spin must reach at least 0.8 turns/s (otherwise "Spin harder!"). Reaching <b>2.2 turns/s</b> = <b>x2 round</b>.</li>
+    <li>Who goes first: if the phone ended up turned less than a quarter turn either way from where it started, its top still faces Player 2 (cosine of the angle ≥ 0), so Player 2 starts; otherwise Player 1.</li>
+    <li>The accelerometer checks the phone is lying flat (screen facing up) before a spin counts.</li>
+    <li>Fallback: "Spin for me" button (random result). Editor: <b>Space</b>.</li>
+    <li><b>Why it matters</b>: going second is an advantage (you hear the first imitation), so the order must be fair and random. It replaced an earlier "shake for a joker" idea, which did not match the theme of the game.</li>
+  </ul>
+
+  <h3>Mechanic 2: Raise to record <span class="tag">accelerometer</span></h3>
+  <p><b>Simply:</b> you hold the phone like a microphone. Raising it to your mouth starts the 3-2-1 countdown by itself; lowering it during the countdown cancels.</p>
+  <ul>
+    <li>"Upright" is measured from gravity: 0 = phone lying flat, 1 = phone standing straight up (<code>1 − |gravity.z|</code>, using smoothed gravity).</li>
+    <li><b>Raised</b> = upright ≥ 0.6 held for 0.3 s. The phone must have been <b>down</b> (≤ 0.4) at least once first, so it never starts by itself.</li>
+    <li>Lowered during the 3-2-1 for 0.4 s = take cancelled. The countdown also buzzes (you cannot see the screen at your mouth).</li>
+    <li>The microphone button still works as a backup. Editor: hold <b>R</b>.</li>
+  </ul>
+
+  <h3>Mechanic 3: The recording <span class="tag">microphone</span></h3>
+  <ul>
+    <li>Records at 44,100 samples per second, for <b>exactly the length of the video</b>.</li>
+    <li>A <b>live level meter</b> moves with your voice (it measures the loudness of the last ~23 ms of sound), and a progress bar shows the time left.</li>
+    <li>After recording: <b>Play back</b> or <b>Redo</b> (once per player per round), then Next player / Let the AI judge.</li>
+    <li>The game <b>music pauses</b> during the video, hand-over, recording and analysis, so it is never recorded by the microphone.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h3>The AI judge (how the winner is decided)</h3>
+  <div class="box simple">
+    <b class="label">Simply</b>
+    The AI turns each sound (the original and the two imitations) into a list of numbers that describes it, a "fingerprint". It then measures how close each imitation's fingerprint is to the original's. The closer, the higher the score (0–100%). Everything happens <b>on the phone</b>, offline.
+  </div>
+  <table>
+    <tr><th>Part</th><th>Weight</th><th>What it compares</th></tr>
+    <tr><td>Acoustic detail</td><td>60%</td><td>the "colour" of the sound: which pitches are loud (from a spectrogram)</td></tr>
+    <tr><td>Temporal shape</td><td>25%</td><td>how the sound changes over time (rhythm, when it gets loud or quiet)</td></tr>
+    <tr><td>YAMNet</td><td>15%</td><td>a neural network made by Google that recognises 521 kinds of sounds (speech, laughter, animals, horns…). Two sounds that YAMNet "hears" as the same kind score higher.</td></tr>
+  </table>
+  <ul>
+    <li><b>Steps</b>: convert to mono at 16 kHz → compute a <b>log-Mel spectrogram</b> (a picture of which frequencies are loud over time, 64 frequency bands) → YAMNet looks at 96-frame patches (~1 s each, up to 12 patches) → compare with <b>cosine similarity</b>.</li>
+    <li>The final score is multiplied by how active the recording is. A recording that is almost silent (activity under 0.12) scores 0 and is marked "Too quiet".</li>
+    <li>YAMNet runs with Unity's AI engine (<b>Sentis / Inference Engine</b>) from an ONNX model file (<code>YamNet.onnx</code>). Each video has a matching reference sound file (WAV, mono 16 kHz) extracted with FFmpeg.</li>
+    <li><b>Limit to know</b>: YAMNet is a general sound classifier, not built to judge imitations; that is why it only counts for 15% and the acoustic and temporal comparisons carry most of the decision. The weights were tuned by testing.</li>
+  </ul>
+
+  <h3>Other features</h3>
+  <ul>
+    <li><b>Hand-over screen</b>: full screen in the player's colour, "Pass the phone to [name]", "I'm ready" button.</li>
+    <li><b>Verdict screen</b>: both players' scores fill up as animated bars, the winner's card pops, "+1" or "+2 x2 ROUND" or "TOO QUIET" tags.</li>
+    <li><b>Results screen</b>: trophy in the winner's colour, final score, a round-by-round table and the average accuracy; Rematch or Continue (opens Pocket Jungle's Win screen).</li>
+    <li><b>Pause</b> (its own): Resume, Restart, Quit match, Games menu. The shared pause button is hidden in this game.</li>
+    <li>Player names are remembered for next time.</li>
+    <li>The interface is built by an editor tool (<code>SoundCopy &gt; Build Scenes</code>), then restyled by hand with the same art pack and fonts as the Pocket Jungle menus. A second tool (<code>Add Spin Screen</code>) adds new screens without overwriting hand edits.</li>
+  </ul>
+
+  <div class="box tip">
+    <b class="label">Why these sensors make sense here</b>
+    Microphone = the game is about your voice. Raising the phone = holding a microphone, which frees the screen taps and feels like a performance. Spinning = a classic party ritual that makes the turn order fair and visible to everyone.
+  </div>
+</section>
+
+<!-- ============================================================ 5. PHOTO CHALLENGE -->
+<section class="page">
+  <h2>5. Photo Challenge <span class="tag">by Eya</span></h2>
+  <div class="box simple">
+    <b class="label">In one sentence</b>
+    Two players take turns: each turn the game names an everyday object, and the player has 15 seconds to find it and photograph it; an AI checks whether the photo really shows that object.
+  </div>
+
+  <h3>How to play</h3>
+  <ul>
+    <li>Enter both names, then <b>6 turns</b> in total (3 per player, alternating).</li>
+    <li>Each turn starts with "Pass the phone to [name]". The object's <b>name and reference picture are hidden</b> ("???") until the player taps <b>Je suis prêt</b> (I'm ready). They appear at the same moment the <b>15-second timer</b> starts, which is fair: nobody can start searching early.</li>
+    <li>Point the camera at the object and tap <b>Prendre la photo</b> (take the photo). If the AI says it matches: <b>+1 point</b>, next player. If not: try again until time runs out.</li>
+    <li>Objects: a bottle, a chair, a cup, a book, a phone. They are drawn like shuffled cards, so each appears before any repeats.</li>
+    <li>End: the player with the most points wins (or a draw). Continue opens Pocket Jungle's Win screen.</li>
+  </ul>
+
+  <h3>Sensor: the rear camera</h3>
+  <ul>
+    <li>Uses the <b>rear camera</b> (back of the phone), requested at 1280×720, 30 images per second, shown live in the middle of the screen.</li>
+    <li>Android asks for camera permission the first time.</li>
+    <li><b>Rotation fix</b>: phone cameras send their picture rotated or mirrored depending on the phone. The game reads the camera's reported rotation (<code>videoRotationAngle</code>) and mirroring and turns both the live preview and the captured photo the right way up. Playing in landscape also helps, because phone camera sensors are naturally landscape.</li>
+  </ul>
+
+  <h3>The AI check (MobileCLIP)</h3>
+  <div class="box simple">
+    <b class="label">Simply</b>
+    An AI model turns the photo into a list of numbers that describes what is in the picture (its "meaning"). It does the same for a reference picture of the object. If the two lists point in a similar direction, the pictures show similar things.
+  </div>
+  <ul>
+    <li>Model: <b>MobileCLIP-S2 image encoder</b> (<code>vision_model_fp16.onnx</code>, ~72 MB), run on the phone with Unity Sentis (on the graphics chip, or the processor if that fails).</li>
+    <li>The photo is cropped to a square from the centre and resized to 256×256 pixels before going into the model.</li>
+    <li><b>Cosine similarity</b> between the photo's numbers and the reference's numbers: 1 = identical meaning, 0 = unrelated. A match needs <b>≥ 0.45</b>. Every comparison is written to the Console so the threshold can be tuned.</li>
+    <li>Reference images are prepared once when the game starts (the model loads in the background; "Start" waits until it is ready).</li>
+  </ul>
+
+  <h3>Feedback</h3>
+  <p>Sounds: a whoosh when the object is revealed, a camera shutter, a ding on a match, a buzz on a miss or time-out, ticks for the last 3 seconds, the Photo Challenge music loop. Vibration on a match.</p>
+
+  <div class="box warn">
+    <b class="label">Known limits (good to say honestly)</b>
+    The AI compares the photo with <i>one specific</i> reference picture, so a very different-looking bottle, or a messy background, can fail. The 0.45 threshold should be tuned with real photos. The project also contains an unused object-detection model (YOLO, <code>yolo11n.onnx</code>) that could recognise 80 kinds of objects; switching to it is the main planned improvement. Photo Challenge's texts are in French, while the other games are in English.
+  </div>
+
+  <div class="box tip">
+    <b class="label">Why this sensor makes sense here</b>
+    The camera turns the real room into the game board: players must physically move around and find real objects.
+  </div>
+</section>
+
+<!-- ============================================================ 6. SHARED SYSTEMS -->
+<section class="page">
+  <h2>6. Shared systems</h2>
+
+  <h3>Menus and navigation</h3>
+  <ul>
+    <li>The game starts on <b>MainMenu</b> (logo, Play, Settings, Quit). Play opens the <b>LevelSelect</b> list of minigame cards with stars earned.</li>
+    <li>Scene changes use a short <b>black fade</b>.</li>
+    <li><b>Pause</b>: stops game time (<code>Time.timeScale = 0</code>) and mutes game audio; the pause menu loads on top of the game.</li>
+    <li><b>Android back button</b>: closes Settings, then the pause menu, then pauses the game; in menus it goes back to the main menu; on the main menu it quits.</li>
+    <li><b>Orientation</b>: the whole game is landscape. Each minigame's orientation is a setting in the registry, so a future portrait game is possible.</li>
+    <li><b>Safe area</b>: the interface stays clear of the camera notch and rounded corners.</li>
+  </ul>
+
+  <h3>Settings (saved on the phone)</h3>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>Effect</th></tr>
+    <tr><td>Music</td><td>80%</td><td>music volume</td></tr>
+    <tr><td>Sound effects</td><td>100%</td><td>clicks, jingles, game sounds</td></tr>
+    <tr><td>Vibration</td><td>on</td><td>all buzzes in every game</td></tr>
+    <tr><td>Invert tilt</td><td>off</td><td>flips Egg Run's tilt direction</td></tr>
+    <tr><td>Tilt sensitivity</td><td>×1.0</td><td>×0.5 (gentle) to ×1.5 (sharp)</td></tr>
+    <tr><td>Sun events (Egg Run)</td><td>on</td><td>turns the sun and heat mechanic on/off</td></tr>
+    <tr><td>Show debug info</td><td>off</td><td>sensor readouts and the sensor panel</td></tr>
+    <tr><td>Reset progress</td><td>-</td><td>tap twice to erase stars and best scores</td></tr>
+  </table>
+
+  <h3>Sound and music</h3>
+  <ul>
+    <li>4 music loops (menus, Egg Run, Sound Copy, Photo Challenge) and 17 sound effects, all <b>original</b>, generated by a Python script (<code>Tools/AudioSynth/synth.py</code>) from simple waveforms; no downloaded or copyrighted audio.</li>
+    <li>Sounds are loaded <b>by file name</b> from <code>Assets/UI/Resources/Audio</code>; replacing a file with another of the same name changes the sound.</li>
+    <li>Every button gets a click sound automatically, including buttons built by code.</li>
+  </ul>
+
+  <h3>Visual style</h3>
+  <ul>
+    <li>A green cartoon UI pack ("2D Casual UI"), jungle backgrounds, and the fonts <b>Starborn</b> (titles) and <b>Cute Dino</b> (text), used in the menus and in all three minigames.</li>
+    <li>Logo "Pocket Jungle": a wooden sign with leaves, a sun and badges for the three games.</li>
+    <li>Layout: 1920×1080 reference, main buttons at the bottom-right under the right thumb, large text and buttons for a phone screen.</li>
+  </ul>
+
+  <h3>Permissions the app asks for</h3>
+  <table>
+    <tr><th>Permission</th><th>Why</th><th>If refused</th></tr>
+    <tr><td>Camera</td><td>Egg Run shade detection, Photo Challenge photos</td><td>Egg Run shows a SHADE button; Photo Challenge shows a message</td></tr>
+    <tr><td>Microphone</td><td>Sound Copy recordings</td><td>message "Mic access denied", can retry from Settings</td></tr>
+  </table>
+  <p class="muted">Motion sensors (accelerometer, gravity, gyroscope, light, proximity) need no permission on Android.</p>
+</section>
+
+<!-- ============================================================ 7. TESTING -->
+<section class="page">
+  <h2>7. Testing tools and building the app</h2>
+
+  <h3>Keyboard shortcuts in the Unity Editor (no phone needed)</h3>
+  <table>
+    <tr><th>Key</th><th>Game</th><th>Fakes</th></tr>
+    <tr><td>A / D or arrows</td><td>Egg Run</td><td>tilting the phone</td></tr>
+    <tr><td>S</td><td>Egg Run</td><td>a shake (scare the bird)</td></tr>
+    <tr><td>L (hold)</td><td>Egg Run</td><td>covering the camera / sensor</td></tr>
+    <tr><td>R (hold)</td><td>Sound Copy</td><td>raising the phone to your mouth</td></tr>
+    <tr><td>Space</td><td>Sound Copy</td><td>a spin of the phone</td></tr>
+    <tr><td>Esc</td><td>All</td><td>the Android back button</td></tr>
+  </table>
+
+  <h3>On the phone</h3>
+  <ul>
+    <li>Turn on <b>Show debug info</b> to see live sensor values and the list of sensors the phone really has.</li>
+    <li>Unity Remote (phone as a controller for the Editor) does <i>not</i> pass the light sensor or a working camera, so those features must be tested in a real build.</li>
+    <li>Thresholds (cover ratio, raise level, spin speeds, AI threshold) are all adjustable in the Unity Inspector without changing code.</li>
+  </ul>
+
+  <h3>Building for Android</h3>
+  <ul>
+    <li>Unity 6000.6.3f1 with Android Build Support; scripting backend IL2CPP (C# converted to C++ then compiled for the phone).</li>
+    <li>Input: "Input System Package (New)" only. The old input system was turned off because Android warns against using both.</li>
+    <li>All scenes are added to the build list automatically (<code>Tools &gt; Game UI &gt; Sync Build Scene List</code>).</li>
+    <li>Problem we met: the antivirus (RAV) blocked Unity's build tools and the Unity installer. Fix: allow Unity's tools in the antivirus rules (or pause it during the build).</li>
+  </ul>
+
+  <h3>Teamwork and version control</h3>
+  <ul>
+    <li>The project uses Git and GitHub. Each teammate worked on a branch; their branches were merged into one project while keeping everyone's files (an earlier merge would have deleted Egg Run, so it was merged carefully).</li>
+    <li>Each colleague's folder contains a change log (<code>CHANGEMENTS_INTEGRATION.md</code>) explaining what was changed during integration.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ 8. Q&A -->
+<section class="page">
+  <h2>8. Validation questions and answers</h2>
+  <p class="muted">Short, simple answers you can give out loud. Grouped by topic.</p>
+
+  <h3>General</h3>
+  <div class="qa"><div class="q">What is your project?</div><div class="a">Pocket Jungle, a mobile game made of three minigames that use the phone's sensors as controls: Egg Run (tilt, shake, camera), Sound Copy (microphone, accelerometer, gyroscope, on-device AI) and Photo Challenge (camera, on-device AI), linked by shared menus.</div></div>
+  <div class="qa"><div class="q">Why use sensors instead of buttons?</div><div class="a">Each sensor matches a natural real-world gesture (balancing a spoon, shooing a bird, shading from the sun, holding a microphone, spinning a bottle, taking a photo). It is more fun and more physical, and it shows what a phone can do beyond a touchscreen.</div></div>
+  <div class="qa"><div class="q">How do the three games become one game?</div><div class="a">A shared menu system. Each minigame only calls Win or Lose through a "bridge"; the shared system shows the result screen, saves stars and best scores, plays music, handles pause and moves to the next game. A registry lists the games for the level menu.</div></div>
+  <div class="qa"><div class="q">Does it need the internet?</div><div class="a">No. Everything, including both AI models, runs on the phone.</div></div>
+  <div class="qa"><div class="q">Which phone did you test on, and what did you learn?</div><div class="a">A Samsung Galaxy A17. Its light and proximity sensors are "virtual" (estimated by Android, no real chip), so covering them barely changed the values. We switched Egg Run's shade detection to the front camera, which works on every phone.</div></div>
+
+  <h3>Sensors (general)</h3>
+  <div class="qa"><div class="q">What is the difference between the accelerometer, the gravity sensor and the gyroscope?</div><div class="a">The accelerometer measures all pushes on the phone including gravity (so it is shaky). The gravity sensor gives only the gravity direction, cleaned by Android using several sensors (good for tilt). The gyroscope measures how fast the phone rotates (good for spinning).</div></div>
+  <div class="qa"><div class="q">How do you avoid false triggers from noisy sensors?</div><div class="a">Smoothing (running average), dead zones (ignore tiny moves), two thresholds for on/off (hysteresis), and requiring the condition to last a short time (0.12–0.5 s) before it counts.</div></div>
+  <div class="qa"><div class="q">What happens on a phone without a sensor?</div><div class="a">Every sensor feature has a fallback: Egg Run tilt uses the accelerometer if there is no gravity sensor; the sun uses light/proximity if no camera, or a SHADE button; Sound Copy has a mic button and a "Spin for me" button. In the Editor, keyboard keys replace sensors.</div></div>
+  <div class="qa"><div class="q">How do you read sensors in Unity?</div><div class="a">With the new Input System package: enable the device (sensors are off by default to save battery) and read its value each frame. Camera with WebCamTexture, microphone with the Microphone class.</div></div>
+  <div class="qa"><div class="q">Do sensors drain the battery?</div><div class="a">Sensors are turned on only by the scripts that need them. The camera in Egg Run runs at a tiny 160×120 size and stops at the end of the round.</div></div>
+</section>
+
+<section class="page">
+  <h3>Egg Run</h3>
+  <div class="qa"><div class="q">How is the tilt angle calculated?</div><div class="a">From the gravity direction: angle = arcsin(gravity x / gravity length), in degrees. It is calibrated when you press Start (your current grip counts as level), with a 1° dead zone, a ±45° limit and smoothing.</div></div>
+  <div class="qa"><div class="q">How does the egg move?</div><div class="a">With Unity's physics engine: the egg is a real physics object that rolls on the spoon under gravity. It breaks as soon as it touches anything that is not the spoon.</div></div>
+  <div class="qa"><div class="q">Why does the egg fall if I don't tilt?</div><div class="a">Walking adds rocking, sway, a slow drift and random stumbles to the spoon, like a real hand. The drift is the key: it leans the spoon for several seconds, so you must correct it.</div></div>
+  <div class="qa"><div class="q">How is a shake detected?</div><div class="a">The script separates slow changes (gravity) from fast jolts. A jolt stronger than 0.8 g is a "jerk"; three jerks within 0.8 seconds make a shake. During a shake the tilt is frozen so the egg stays safe.</div></div>
+  <div class="qa"><div class="q">How do you know the camera is covered?</div><div class="a">The front camera's picture is measured ten times per second: if its brightness falls under 40% of the room's normal brightness, or it is almost black, or it is flat and dim (a thumb gives a blurry, even picture), it counts as covered. The room's brightness is learned slowly while uncovered.</div></div>
+  <div class="qa"><div class="q">Do you record or store the camera image?</div><div class="a">No. Only the average brightness and contrast numbers are computed; the picture is never shown or saved.</div></div>
+  <div class="qa"><div class="q">How are stars given?</div><div class="a">Finish within 60 seconds: 3 stars with 30 s or more left, 2 stars with 15 s or more, otherwise 1 star. Score = seconds left × 10.</div></div>
+
+  <h3>Sound Copy</h3>
+  <div class="qa"><div class="q">How does the AI decide the winner?</div><div class="a">It turns the original sound and both imitations into "fingerprints" and measures how close each imitation is to the original: 60% sound detail (spectrum), 25% shape over time, 15% YAMNet (a Google model that recognises 521 sound types). Silent recordings get 0; a difference under 3 points is a tie.</div></div>
+  <div class="qa"><div class="q">What is a spectrogram / log-Mel?</div><div class="a">A picture of a sound: time from left to right, pitch from bottom to top, brightness = loudness. "Mel" spaces the pitches like human hearing; "log" compresses loudness like our ears do.</div></div>
+  <div class="qa"><div class="q">What is cosine similarity?</div><div class="a">A way to compare two lists of numbers by the angle between them: 1 means they point the same way (very similar), 0 means unrelated. Used in both AI games.</div></div>
+  <div class="qa"><div class="q">Why only 15% for YAMNet?</div><div class="a">YAMNet classifies sound types; it was not trained to judge imitations. It helps (e.g. "this is a horn") but the direct acoustic and timing comparisons decide most of the score.</div></div>
+  <div class="qa"><div class="q">How does "raise to record" work?</div><div class="a">The accelerometer gives gravity; when the phone stands up like a microphone (uprightness ≥ 0.6 for 0.3 s) after having been down, the countdown starts. Lowering it during the countdown cancels.</div></div>
+  <div class="qa"><div class="q">How does the spin decide who starts?</div><div class="a">The gyroscope gives the rotation speed; adding it up over time gives how far the phone turned. If the top of the screen still points to Player 2's side (turned less than a quarter turn either way), Player 2 starts; otherwise Player 1. Top speed ≥ 2.2 turns per second = x2 round.</div></div>
+  <div class="qa"><div class="q">Why not keep the music on?</div><div class="a">The microphone would record it and the AI would compare music instead of the voice, so the music pauses during the video, recording and analysis.</div></div>
+  <div class="qa"><div class="q">Why is the match fixed to 3 rounds?</div><div class="a">It keeps matches short and equal, and with the x2 rounds there are still comebacks.</div></div>
+</section>
+
+<section class="page">
+  <h3>Photo Challenge</h3>
+  <div class="qa"><div class="q">How does the game know the photo shows the right object?</div><div class="a">MobileCLIP turns the photo and the reference picture into lists of numbers describing their content; if their cosine similarity is at least 0.45, it is a match.</div></div>
+  <div class="qa"><div class="q">Why is the object hidden until Ready?</div><div class="a">Fairness: otherwise a player could read the object and start searching before their 15 seconds begin, while the other player is still holding the phone.</div></div>
+  <div class="qa"><div class="q">Why was the camera image sideways before?</div><div class="a">Phone cameras send images rotated or mirrored depending on the phone. We now read the reported rotation and mirroring and correct both the preview and the photo sent to the AI.</div></div>
+  <div class="qa"><div class="q">What would you improve?</div><div class="a">Use the YOLO object detector (already in the project) to recognise "any cup" instead of comparing with one reference picture, add more objects, and tune the threshold with real photos.</div></div>
+
+  <h3>Technical / Unity</h3>
+  <div class="qa"><div class="q">Which Unity version and render pipeline?</div><div class="a">Unity 6 (6000.6.3f1) with the Universal Render Pipeline (URP), built for Android with IL2CPP.</div></div>
+  <div class="qa"><div class="q">How do you run AI models in Unity?</div><div class="a">With Unity Sentis (Inference Engine). Models are ONNX files (YAMNet for sounds, MobileCLIP for images); they run on the phone's graphics chip, or the processor as a backup.</div></div>
+  <div class="qa"><div class="q">How is pause implemented?</div><div class="a">Time.timeScale = 0 stops everything that uses game time (physics, timers), game audio is paused, and the pause menu scene is loaded on top so the game keeps its state.</div></div>
+  <div class="qa"><div class="q">How is progress saved?</div><div class="a">With PlayerPrefs (small key/value storage on the phone): per game, completed, best stars and best score; plus all settings.</div></div>
+  <div class="qa"><div class="q">How did you organise the code?</div><div class="a">One folder per minigame plus a shared UI folder (Core, Menus, Editor tools). Minigames talk to the menus only through MiniGameBridge. Settings are in one static class. Editor tools build the menus and scene lists automatically.</div></div>
+  <div class="qa"><div class="q">How do you handle different screen sizes?</div><div class="a">A Canvas Scaler with a 1920×1080 reference (screens keep their size on any phone), a safe area for notches, and windows that shrink to fit on wide phones.</div></div>
+  <div class="qa"><div class="q">Where do the sounds and music come from?</div><div class="a">We generated them with our own Python script from simple waveforms (sine, square, noise), so there are no copyright issues. They can be swapped by replacing files with the same name.</div></div>
+
+  <h3>Problems we faced</h3>
+  <div class="qa"><div class="q">What were the biggest difficulties?</div><div class="a">(1) Virtual light/proximity sensors on the test phone: solved with the camera. (2) Merging three separate projects without losing anyone's work. (3) Camera rotation on Android. (4) The antivirus blocking Unity's build and install. (5) Keeping the walking difficulty fair: the egg first never fell, so we added drift and stumbles.</div></div>
+  <div class="qa"><div class="q">What are the current limitations?</div><div class="a">Thresholds were tuned on one phone; the AI judges are approximations (sound imitation and photo matching); Photo Challenge's texts are still in French; the fourth minigame slot is empty.</div></div>
+  <div class="qa"><div class="q">What would you add next?</div><div class="a">A fourth minigame, YOLO detection in Photo Challenge, a "blind round" in Sound Copy that plays the sound's rhythm with vibration, tuning on more phones, and professional sounds.</div></div>
+</section>
+
+<!-- ============================================================ 9. GLOSSARY -->
+<section class="page">
+  <h2>9. Glossary</h2>
+  <table>
+    <tr><th style="width:24%">Word</th><th>Meaning in one sentence</th></tr>
+    <tr><td>Accelerometer</td><td>Sensor that measures pushes on the phone, including gravity.</td></tr>
+    <tr><td>Actuator</td><td>A part that acts on the world instead of measuring it (the vibration motor).</td></tr>
+    <tr><td>Calibration</td><td>Recording a starting position as "zero" (Egg Run: your grip counts as level).</td></tr>
+    <tr><td>Canvas Scaler</td><td>Unity component that resizes the interface to fit any screen.</td></tr>
+    <tr><td>Cosine similarity</td><td>A 0–1 score of how alike two lists of numbers are, from the angle between them.</td></tr>
+    <tr><td>Dead zone</td><td>A small range of values that is ignored so tiny movements do nothing.</td></tr>
+    <tr><td>Debounce / hold time</td><td>A condition must last a short time before it counts.</td></tr>
+    <tr><td>Embedding</td><td>The list of numbers an AI model produces to describe an image or sound.</td></tr>
+    <tr><td>g</td><td>The strength of Earth's gravity (1 g); used to measure shake strength.</td></tr>
+    <tr><td>Gravity sensor</td><td>Virtual sensor giving only the direction of gravity, without shaking.</td></tr>
+    <tr><td>Gyroscope</td><td>Sensor that measures how fast the phone rotates.</td></tr>
+    <tr><td>Hysteresis</td><td>Different thresholds to switch on and off, to avoid flickering.</td></tr>
+    <tr><td>IL2CPP</td><td>Unity's way of converting C# code to C++ to build fast Android apps.</td></tr>
+    <tr><td>Inference</td><td>Running a trained AI model on new data (here, on the phone).</td></tr>
+    <tr><td>Input System</td><td>Unity's modern package for reading touch, keyboard and sensors.</td></tr>
+    <tr><td>Log-Mel spectrogram</td><td>A picture of a sound: time × pitch, with loudness on a human-like scale.</td></tr>
+    <tr><td>Lux</td><td>Unit of light brightness.</td></tr>
+    <tr><td>MobileCLIP</td><td>A small AI model (Apple) that describes images as numbers; used in Photo Challenge.</td></tr>
+    <tr><td>ONNX</td><td>A standard file format for AI models, readable by Unity Sentis.</td></tr>
+    <tr><td>Physics engine</td><td>The part of Unity that simulates gravity, rolling and collisions (the egg).</td></tr>
+    <tr><td>PlayerPrefs</td><td>Unity's small storage on the phone for settings and saves.</td></tr>
+    <tr><td>Proximity sensor</td><td>Sensor that says if something is very close to the top of the phone.</td></tr>
+    <tr><td>Registry</td><td>The list of minigames shown in the level menu.</td></tr>
+    <tr><td>Scene</td><td>A Unity "level" or screen (a menu or a minigame).</td></tr>
+    <tr><td>Sentis / Inference Engine</td><td>Unity's package for running AI models inside a game.</td></tr>
+    <tr><td>Smoothing</td><td>Blending each new value with the previous ones so it moves gently.</td></tr>
+    <tr><td>Threshold</td><td>The value a reading must cross for something to happen.</td></tr>
+    <tr><td>Time.timeScale</td><td>Unity's game speed; 0 = paused.</td></tr>
+    <tr><td>URP</td><td>Universal Render Pipeline: Unity's graphics system for mobile-friendly rendering.</td></tr>
+    <tr><td>Virtual sensor</td><td>A value Android computes from other sensors instead of a real chip.</td></tr>
+    <tr><td>WebCamTexture</td><td>Unity's way to get live images from a phone camera.</td></tr>
+    <tr><td>YAMNet</td><td>A Google AI model that recognises 521 types of sounds; used in Sound Copy.</td></tr>
+  </table>
+</section>
+
+</body>
+</html>

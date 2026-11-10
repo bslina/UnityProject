@@ -116,17 +116,18 @@ public class GameManager : MonoBehaviour
         player.CanWalk = false;
         walkButton.SetActive(false);
         sunGlare.Stop();
+        if (PlayerAnimator.Instance != null) PlayerAnimator.Instance.ShowResult(won);
 
         if (MiniGameBridge.IsAvailable)
         {
             if (won)
             {
                 int stars = timeLeft >= threeStarTime ? 3 : timeLeft >= twoStarTime ? 2 : 1;
-                MiniGameBridge.Win(detail, stars, Mathf.RoundToInt(timeLeft * 10f));
+                MiniGameBridge.Win(detail, stars, Mathf.RoundToInt(timeLeft * 10f), 2f); // time to see the victory dance
             }
             else
             {
-                MiniGameBridge.Lose(detail);
+                MiniGameBridge.Lose(detail, 2f);
             }
             return;
         }

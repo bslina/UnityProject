@@ -29,6 +29,9 @@ MonoBehaviour:
     comingSoon: 0
     orientation: 0
     hidePauseButton: 0
+    resultCharacter: {fileID: 3823169061288526082, guid: b2030ac09a5995c448a00ae235ed33cb, type: 3}
+    winLine: We did it! You're a natural!
+    loseLine: It's okay! I'm sure we can do it next time. Try again?
   - id: sound_copy
     displayName: Sound Copy
     description: 'One sound, two imitations: the AI picks the winner!'
@@ -38,6 +41,9 @@ MonoBehaviour:
     comingSoon: 0
     orientation: 0
     hidePauseButton: 1
+    resultCharacter: {fileID: 0}
+    winLine: 
+    loseLine: 
   - id: photo_challenge
     displayName: Photo Challenge
     description: Find the object and take its picture!
@@ -47,6 +53,9 @@ MonoBehaviour:
     comingSoon: 0
     orientation: 0
     hidePauseButton: 0
+    resultCharacter: {fileID: 0}
+    winLine: 
+    loseLine: 
   - id: minigame_4
     displayName: Mini Game 4
     description: Coming soon
@@ -56,3 +65,6 @@ MonoBehaviour:
     comingSoon: 1
     orientation: 0
     hidePauseButton: 0
+    resultCharacter: {fileID: 0}
+    winLine: 
+    loseLine: 

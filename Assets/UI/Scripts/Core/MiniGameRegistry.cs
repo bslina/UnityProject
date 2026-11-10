@@ -26,6 +26,14 @@ namespace GameUI
         [Tooltip("Hide the shared pause button (for minigames that have their own pause menu).")]
         public bool hidePauseButton;
 
+        [Header("Win / Lose screen character (optional)")]
+        [Tooltip("Animated character shown on the Win and Lose screens after this minigame.")]
+        public GameObject resultCharacter;
+        [Tooltip("What the character says on the Win screen.")]
+        [TextArea(1, 3)] public string winLine;
+        [Tooltip("What the character says on the Lose screen.")]
+        [TextArea(1, 3)] public string loseLine;
+
         public bool IsPlayable => !comingSoon && !string.IsNullOrEmpty(sceneName);
     }
 

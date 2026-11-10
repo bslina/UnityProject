@@ -23,6 +23,8 @@ EGG RUN
   bird_chirp   the bird lands on the spoon
   sun_warning  the sun is about to come out
   sizzle       loop while the egg heats in full sun
+  bubble_pop   start panel: a new tip pops into the speech bubble   (Tools/AudioSynth/guide_sfx.py)
+  character_cheer  start panel: you tap the character              (Tools/AudioSynth/guide_sfx.py)
 
 SOUND COPY
   spin_result  spin finished (normal round)

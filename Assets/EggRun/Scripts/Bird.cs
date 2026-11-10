@@ -154,6 +154,7 @@ public class Bird : MonoBehaviour
         {
             Haptics.Pulse(80, 200);
             GameUI.GameAudio.Play("bird_flap");
+            if (PlayerAnimator.Instance != null) PlayerAnimator.Instance.Shoo();
             FlyOff();
         }
     }
