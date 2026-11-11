@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Starborn; src: url("file:///C:/Users/msigf/Documents/GitHub/UnityProject/Assets/PocketJungle/Shared/Art/Fonts/starborn/Starborn.ttf"); }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  svg { display: block; }
+  .title { font-family: Starborn; paint-order: stroke fill; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<svg width="1760" height="860" viewBox="-80 -70 1760 860" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c98a4b"/>
+      <stop offset="0.55" stop-color="#a8692f"/>
+      <stop offset="1" stop-color="#7d4a1f"/>
+    </linearGradient>
+    <linearGradient id="woodTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e3a866"/>
+      <stop offset="1" stop-color="#b8763a"/>
+    </linearGradient>
+    <linearGradient id="leafA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7fd34e"/>
+      <stop offset="1" stop-color="#2f8f3a"/>
+    </linearGradient>
+    <linearGradient id="leafB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4fbf5a"/>
+      <stop offset="1" stop-color="#1d6b34"/>
+    </linearGradient>
+    <linearGradient id="textFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff7c2"/>
+      <stop offset="0.5" stop-color="#ffd84a"/>
+      <stop offset="1" stop-color="#ff9f1c"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff6a8"/>
+      <stop offset="0.6" stop-color="#ffd23f"/>
+      <stop offset="1" stop-color="#ffb000"/>
+    </radialGradient>
+    <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe066" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffe066" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#3a1f08" flood-opacity="0.45"/>
+    </filter>
+    <!-- one leaf, pointing right, base at 0,0 -->
+    <g id="leaf">
+      <path d="M0 0 C 60 -55, 170 -60, 240 0 C 170 60, 60 55, 0 0 Z"/>
+      <path d="M8 0 L 225 0" stroke="#1a5428" stroke-width="5" stroke-linecap="round" opacity="0.55" fill="none"/>
+    </g>
+    <g id="woodGrain" stroke="#6b3d16" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.35">
+      <path d="M40 30 C 200 20, 330 45, 520 28"/>
+      <path d="M600 22 C 760 40, 900 18, 1080 34"/>
+    </g>
+  </defs>
+
+  <!-- sun behind the sign (the Egg Run sun) -->
+  <circle cx="1330" cy="150" r="170" fill="url(#sunGlow)"/>
+  <g transform="translate(1330 150)">
+    <g fill="#ffc21a">
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(0)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(30)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(60)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(90)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(120)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(150)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(180)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(210)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(240)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(270)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(300)"/>
+      <path d="M0 -150 L 18 -100 L -18 -100 Z" transform="rotate(330)"/>
+    </g>
+    <circle r="92" fill="url(#sun)" stroke="#e08a00" stroke-width="7"/>
+  </g>
+
+  <!-- leaves behind the sign -->
+  <g stroke="#14512a" stroke-width="6" stroke-linejoin="round">
+    <use href="#leaf" fill="url(#leafB)" transform="translate(250 330) rotate(200) scale(1.25)"/>
+    <use href="#leaf" fill="url(#leafA)" transform="translate(240 360) rotate(165) scale(1.1)"/>
+    <use href="#leaf" fill="url(#leafA)" transform="translate(260 300) rotate(235) scale(0.95)"/>
+    <use href="#leaf" fill="url(#leafB)" transform="translate(1350 360) rotate(-20) scale(1.25)"/>
+    <use href="#leaf" fill="url(#leafA)" transform="translate(1360 390) rotate(15) scale(1.1)"/>
+    <use href="#leaf" fill="url(#leafA)" transform="translate(1340 330) rotate(-55) scale(0.9)"/>
+  </g>
+
+  <!-- posts -->
+  <g filter="url(#shadow)">
+    <rect x="395" y="520" width="56" height="210" rx="14" fill="url(#wood)" stroke="#4a2a0e" stroke-width="7"/>
+    <rect x="1149" y="520" width="56" height="210" rx="14" fill="url(#wood)" stroke="#4a2a0e" stroke-width="7"/>
+  </g>
+
+  <!-- the sign: two planks -->
+  <g filter="url(#shadow)" transform="rotate(-2 800 380)">
+    <rect x="230" y="170" width="1140" height="190" rx="34" fill="url(#woodTop)" stroke="#4a2a0e" stroke-width="9"/>
+    <rect x="270" y="350" width="1060" height="200" rx="34" fill="url(#wood)" stroke="#4a2a0e" stroke-width="9"/>
+    <use href="#woodGrain" transform="translate(240 180)"/>
+    <use href="#woodGrain" transform="translate(270 380) scale(0.95 1)"/>
+    <!-- nails -->
+    <g fill="#5b5b5b" stroke="#2b2b2b" stroke-width="3">
+      <circle cx="275" cy="210" r="11"/><circle cx="1325" cy="210" r="11"/>
+      <circle cx="315" cy="510" r="11"/><circle cx="1285" cy="510" r="11"/>
+    </g>
+
+    <!-- title -->
+    <text class="title" x="800" y="318" text-anchor="middle" font-size="150"
+          fill="url(#textFill)" stroke="#3b1d06" stroke-width="26">SENSOR</text>
+    <text class="title" x="800" y="512" text-anchor="middle" font-size="168"
+          fill="url(#textFill)" stroke="#3b1d06" stroke-width="28">SAFARI</text>
+  </g>
+
+  <!-- three badges: egg on spoon, microphone, camera -->
+  <g filter="url(#shadow)">
+    <g transform="translate(640 640)">
+      <circle r="62" fill="#fff4dc" stroke="#3b1d06" stroke-width="8"/>
+      <path d="M-40 22 L 18 -4" stroke="#8a8f99" stroke-width="10" stroke-linecap="round"/>
+      <ellipse cx="22" cy="-8" rx="26" ry="12" fill="#b9bec7" stroke="#3b1d06" stroke-width="5"/>
+      <ellipse cx="22" cy="-26" rx="17" ry="22" fill="#ffffff" stroke="#3b1d06" stroke-width="5"/>
+    </g>
+    <g transform="translate(800 655)">
+      <circle r="62" fill="#fff4dc" stroke="#3b1d06" stroke-width="8"/>
+      <rect x="-16" y="-42" width="32" height="52" rx="16" fill="#ff7a59" stroke="#3b1d06" stroke-width="5"/>
+      <path d="M-28 -2 C -28 26, 28 26, 28 -2" fill="none" stroke="#3b1d06" stroke-width="6" stroke-linecap="round"/>
+      <path d="M0 22 L 0 38 M -14 40 L 14 40" stroke="#3b1d06" stroke-width="6" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(960 640)">
+      <circle r="62" fill="#fff4dc" stroke="#3b1d06" stroke-width="8"/>
+      <rect x="-38" y="-20" width="76" height="50" rx="10" fill="#4aa3df" stroke="#3b1d06" stroke-width="5"/>
+      <rect x="-14" y="-30" width="28" height="12" rx="4" fill="#4aa3df" stroke="#3b1d06" stroke-width="5"/>
+      <circle cy="5" r="16" fill="#ffffff" stroke="#3b1d06" stroke-width="5"/>
+      <circle cy="5" r="7" fill="#3b1d06"/>
+    </g>
+  </g>
+</svg>
+</body>
+</html>

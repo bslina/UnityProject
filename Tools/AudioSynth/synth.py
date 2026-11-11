@@ -1,5 +1,5 @@
 # Original procedural sound effects and music loops for Pocket Jungle (no samples, no third-party audio).
-# Usage: python Tools/AudioSynth/synth.py Assets/UI/Resources/Audio
+# Usage: python Tools/AudioSynth/synth.py Assets/PocketJungle/Shared/Resources/Audio
 import math, random, struct, sys, wave, os
 
 SR = 22050

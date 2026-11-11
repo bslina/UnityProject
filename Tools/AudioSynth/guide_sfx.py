@@ -1,5 +1,5 @@
 # Original procedural sounds for the Egg Run start-panel guide (no samples, no third-party audio).
-# Usage: python Tools/AudioSynth/guide_sfx.py Assets/UI/Resources/Audio
+# Usage: python Tools/AudioSynth/guide_sfx.py Assets/PocketJungle/Shared/Resources/Audio
 import math, struct, sys, wave, os
 
 SR = 22050

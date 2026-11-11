@@ -1,6 +1,6 @@
 # Original procedural music loops for the minigames added later (no samples, no third-party audio).
 # Reuses the instruments and the music() composer of synth.py.
-# Usage: python Tools/AudioSynth/minigame_music.py Assets/UI/Resources/Audio
+# Usage: python Tools/AudioSynth/minigame_music.py Assets/PocketJungle/Shared/Resources/Audio
 #
 # Every place in Pocket Jungle has its own tune:
 #   music_menu              all menus (main menu, levels, settings, pause, win, lose)  - synth.py

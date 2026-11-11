@@ -1,6 +1,6 @@
 # Original procedural Egg Run sound effects (no samples, no third-party audio).
 # Reuses the instruments of synth.py.
-# Usage: python Tools/AudioSynth/egg_run_sfx.py Assets/UI/Resources/Audio
+# Usage: python Tools/AudioSynth/egg_run_sfx.py Assets/PocketJungle/Shared/Resources/Audio
 #   footstep_1..4  soft steps on a dirt path (one random step per footfall)
 #   bird_land      happy "tweet-tweet" when the bird lands on the spoon
 #   shoo           the player shooing: breathy "shhh-oo!" + hand swish

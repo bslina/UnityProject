@@ -1,7 +1,7 @@
 # Original procedural "babble" syllables for the Egg Run guide character (cute mumbling voice,
 # no real words, no samples). Each file is one short syllable; the game plays random ones at
 # random pitches while a tip is typed out.
-# Usage: python Tools/AudioSynth/babble.py Assets/UI/Resources/Audio
+# Usage: python Tools/AudioSynth/babble.py Assets/PocketJungle/Shared/Resources/Audio
 import math, random, struct, sys, wave, os
 
 SR = 22050
