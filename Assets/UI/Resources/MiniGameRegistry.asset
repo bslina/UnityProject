@@ -29,6 +29,8 @@ MonoBehaviour:
     comingSoon: 0
     orientation: 0
     hidePauseButton: 0
+    inRandomMatch: 1
+    twoPlayer: 0
     resultCharacter: {fileID: 3823169061288526082, guid: b2030ac09a5995c448a00ae235ed33cb, type: 3}
     winLine: We did it! You're a natural!
     loseLine: It's okay! I'm sure we can do it next time. Try again?

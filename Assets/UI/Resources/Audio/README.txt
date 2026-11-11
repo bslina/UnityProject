@@ -6,25 +6,27 @@ No Inspector wiring is needed: the game loads them by name (GameAudio.Play("name
 Volume follows Settings > Music / Sound effects.
 
 MUSIC (loops)
-  music_menu             all Pocket Jungle menus
-  music_egg_run          Egg Run
+  music_menu             all Pocket Jungle menus (main menu, levels, settings, pause, win, lose)
+  music_egg_run          Egg Run (while playing)
+  music_egg_run_intro    Egg Run start panel                      (Tools/AudioSynth/minigame_music.py)
   music_sound_copy       Sound Copy (paused during the video, hand-over, recording and AI analysis)
   music_photo_challenge  Photo Challenge
+  music_reaction_battle  Reaction Battle (silent while waiting for the signal)  (minigame_music.py)
+  music_duo_road         Duo Road (silent in the voice rounds 4 and 5)        (minigame_music.py)
 
 SHARED
   click        every button
   win / lose   Win and Lose screens
   point        Sound Copy: a player wins a round
 
-EGG RUN
-  egg_crack    the egg breaks
-  stumble      the player stumbles while walking
-  bird_flap    the bird flies in / is shaken off
-  bird_chirp   the bird lands on the spoon
-  sun_warning  the sun is about to come out
-  sizzle       loop while the egg heats in full sun
-  bubble_pop   start panel: a new tip pops into the speech bubble   (Tools/AudioSynth/guide_sfx.py)
-  character_cheer  start panel: you tap the character              (Tools/AudioSynth/guide_sfx.py)
+EGG RUN while playing  (Tools/AudioSynth/egg_run_sfx.py)
+  footstep_1..4  the character walks (in time with the walk animation)
+  bird_land      the bird arrives on the spoon AND flies away ("tweet-tweet")
+  shoo           the player shoos the bird (breathy "shhh-oo!" + hand swish)
+  egg_crack      the egg breaks
+  egg_cooked     the egg cooks in the sun: quick sharp oven "ting!"
+  Not played any more (kept in case you want them back): stumble, bird_chirp, bird_flap,
+  sun_warning, sizzle (drag these two into the SunGlare slots to hear them again)
 
 SOUND COPY
   spin_result  spin finished (normal round)

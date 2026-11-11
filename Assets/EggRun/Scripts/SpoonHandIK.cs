@@ -12,7 +12,9 @@ public class SpoonHandIK : MonoBehaviour
     [SerializeField, Range(0f, 1f)] float positionWeight = 1f;
     [Tooltip("0 = the wrist keeps the animation's angle, 1 = follows the spoon's angle.")]
     [SerializeField, Range(0f, 1f)] float rotationWeight = 0.3f;
-    [Tooltip("Grip point, in the handle's own space (move it along the handle if the hand looks off).")]
+    [Tooltip("Where along the handle the hand holds it: -0.5 = the far end (away from the bowl), 0 = middle, 0.5 = next to the bowl.")]
+    [SerializeField, Range(-0.5f, 0.5f)] float gripAlongHandle = -0.42f;
+    [Tooltip("Extra fine-tuning of the grip point, in the handle's own space.")]
     [SerializeField] Vector3 gripOffset = Vector3.zero;
     [SerializeField] Vector3 rotationOffset = Vector3.zero;
 
@@ -36,7 +38,7 @@ public class SpoonHandIK : MonoBehaviour
     {
         if (layerIndex != 0 || target == null || animator == null) return;
         animator.SetIKPositionWeight(hand, positionWeight);
-        animator.SetIKPosition(hand, target.TransformPoint(gripOffset));
+        animator.SetIKPosition(hand, target.TransformPoint(new Vector3(gripAlongHandle, 0f, 0f) + gripOffset));
         animator.SetIKRotationWeight(hand, rotationWeight);
         animator.SetIKRotation(hand, target.rotation * Quaternion.Euler(rotationOffset));
     }

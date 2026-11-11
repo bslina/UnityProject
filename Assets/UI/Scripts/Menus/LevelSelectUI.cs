@@ -13,6 +13,12 @@ namespace GameUI
         [SerializeField] Button backButton;
         [Tooltip("Optional: opens the settings on top of this menu.")]
         [SerializeField] Button settingsButton;
+        [Tooltip("Opens the Random Match (2 players, 3 random games).")]
+        [SerializeField] Button randomMatchButton;
+        [Tooltip("Shows who is playing: \"Lina  vs  Sam\".")]
+        [SerializeField] Text playersText;
+        [Tooltip("Back to the Players scene to change the names.")]
+        [SerializeField] Button changePlayersButton;
 
         static readonly List<LevelSelectUI> open = new List<LevelSelectUI>();
         readonly List<LevelButton> cards = new List<LevelButton>();
@@ -21,10 +27,14 @@ namespace GameUI
         {
             if (backButton != null) backButton.onClick.AddListener(() => GameFlow.Instance.LoadMainMenu());
             if (settingsButton != null) settingsButton.onClick.AddListener(() => GameFlow.Instance.OpenSettings());
+            if (randomMatchButton != null) randomMatchButton.onClick.AddListener(() => GameFlow.Instance.OpenRandomMatch());
+            if (changePlayersButton != null) changePlayersButton.onClick.AddListener(() => GameFlow.Instance.OpenPlayers());
         }
 
         void OnEnable()
         {
+            if (playersText != null && GameFlow.Instance != null)
+                playersText.text = GameFlow.Instance.PlayerName(1) + "  vs  " + GameFlow.Instance.PlayerName(2);
             open.Add(this);
             Refresh();
         }

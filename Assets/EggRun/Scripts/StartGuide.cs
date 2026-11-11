@@ -53,6 +53,25 @@ public class StartGuide : MonoBehaviour
     [SerializeField] CharacterPortrait portrait;
     [SerializeField] string reactTrigger = "React";
     [SerializeField] string reactSound = "character_cheer";
+    [Tooltip("The little \"Tap me!\" text next to the character (gently pulses). Optional.")]
+    [SerializeField] RectTransform tapMeLabel;
+
+    [Header("Babble voice (cute mumbling while a tip is typed)")]
+    [Tooltip("Sounds named <prefix>1 ... <prefix><count> in Assets/UI/Resources/Audio.")]
+    [SerializeField] string babblePrefix = "babble_";
+    [SerializeField] int babbleCount = 8;
+    [Tooltip("One syllable every this many letters (2 = chatty, 4 = calm).")]
+    [SerializeField, Range(1, 6)] int lettersPerSyllable = 2;
+    [Tooltip("Voice pitch: 1 = as recorded, higher = smaller/cuter.")]
+    [SerializeField, Range(0.5f, 2f)] float voicePitch = 1.1f;
+    [Tooltip("Random pitch change per syllable, so it sounds like talking.")]
+    [SerializeField, Range(0f, 0.5f)] float pitchVariation = 0.18f;
+    [SerializeField, Range(0f, 1f)] float voiceVolume = 0.55f;
+
+    AudioSource voice;
+    AudioClip[] syllables = new AudioClip[0];
+    int lettersSinceSyllable;
+    int lastCount;
 
     int index;
     float shown;
@@ -68,6 +87,18 @@ public class StartGuide : MonoBehaviour
         if (popTarget == null) popTarget = transform as RectTransform;
         if (characterButton != null) characterButton.onClick.AddListener(React);
         BuildDots();
+
+        voice = gameObject.AddComponent<AudioSource>();
+        voice.playOnAwake = false;
+        voice.spatialBlend = 0f;
+        voice.ignoreListenerPause = true;
+        var list = new System.Collections.Generic.List<AudioClip>();
+        for (int i = 1; i <= babbleCount; i++)
+        {
+            var clip = GameAudio.Get(babblePrefix + i);
+            if (clip != null) list.Add(clip);
+        }
+        syllables = list.ToArray();
     }
 
     void OnEnable()
@@ -78,6 +109,14 @@ public class StartGuide : MonoBehaviour
 
     void Update()
     {
+        // "Tap me!" gently pulses and wiggles so the player notices it.
+        if (tapMeLabel != null && tapMeLabel.gameObject.activeInHierarchy)
+        {
+            float t = Time.unscaledTime;
+            tapMeLabel.localScale = Vector3.one * (1f + 0.08f * Mathf.Sin(t * 4f));
+            tapMeLabel.localRotation = Quaternion.Euler(0f, 0f, -8f + 4f * Mathf.Sin(t * 2.3f));
+        }
+
         // Pop: quick overshoot from 85% to 100% size.
         if (popTarget != null && popTimer < popDuration)
         {
@@ -96,6 +135,8 @@ public class StartGuide : MonoBehaviour
         {
             shown += Time.unscaledDeltaTime * lettersPerSecond;
             int count = Mathf.Min(tip.Length, Mathf.FloorToInt(shown));
+            for (int c = lastCount; c < count; c++) Babble(tip[c]);
+            lastCount = count;
             bubbleText.text = tip.Substring(0, count);
             if (count >= tip.Length && tapHint != null) tapHint.SetActive(true);
         }
@@ -124,9 +165,22 @@ public class StartGuide : MonoBehaviour
         Begin(true, nextPopFrom);
     }
 
+    // One "syllable" every few letters; spaces and punctuation are little pauses.
+    void Babble(char letter)
+    {
+        if (!char.IsLetterOrDigit(letter)) { lettersSinceSyllable = lettersPerSyllable - 1; return; }
+        if (++lettersSinceSyllable < lettersPerSyllable) return;
+        lettersSinceSyllable = 0;
+        if (voice == null || syllables.Length == 0) return;
+        voice.pitch = voicePitch * (1f + Random.Range(-pitchVariation, pitchVariation));
+        voice.PlayOneShot(syllables[Random.Range(0, syllables.Length)], voiceVolume * GameSettings.SfxVolume);
+    }
+
     void Begin(bool pop, float from)
     {
         shown = 0f;
+        lastCount = 0;
+        lettersSinceSyllable = lettersPerSyllable - 1;   // the first letter speaks
         waitTimer = 0f;
         if (bubbleText != null) bubbleText.text = "";
         if (tapHint != null) tapHint.SetActive(false);

@@ -252,8 +252,11 @@ MonoBehaviour:
   resolution: 768
   framing: 1
   turnAngle: 0
+  animationSpeed: 0.7
   lightColor: {r: 1, g: 0.96, b: 0.9, a: 1}
   lightIntensity: 2.5
+  selfLight: 0.45
+  colorBoost: 1.2
 --- !u!114 &164902244
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -463,6 +466,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameUI.ResultUI
   fadeDuration: 0.15
   isWinScreen: 1
+  titleText: {fileID: 1028659652}
   detailText: {fileID: 0}
   scoreText: {fileID: 1121658712}
   gameNameText: {fileID: 1039113011}

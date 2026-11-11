@@ -41,6 +41,15 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/DuoRoad/DuoRoad.unity
     guid: cd818c0a781d4054bec1896eb617a717
+  - enabled: 1
+    path: Assets/UI/Scenes/RandomMatch.unity
+    guid: a7372b8b6bc953747869452667e49cf8
+  - enabled: 1
+    path: Assets/UI/Scenes/Players.unity
+    guid: be02f68282431684b86cb3953446394b
+  - enabled: 1
+    path: Assets/UI/Scenes/TurnHandover.unity
+    guid: f79539ad65e4e3c4c910996fe8cee12f
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

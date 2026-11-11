@@ -152,6 +152,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameUI.MainMenuUI
   playButton: {fileID: 1121658715}
+  randomMatchButton: {fileID: 0}
   settingsButton: {fileID: 1335481774}
   quitButton: {fileID: 2077200344}
 --- !u!114 &775163636

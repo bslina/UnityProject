@@ -23,6 +23,8 @@ public class SunGlare : MonoBehaviour
     [SerializeField] Vector2 sunDuration = new Vector2(5f, 8f);
     [Tooltip("No new sun starts when less time than this is left on the timer.")]
     [SerializeField] float noSunInLastSeconds = 6f;
+    [Tooltip("One thing at a time: if the bird is around, the sun waits until it has been gone this many seconds.")]
+    [SerializeField] float waitAfterBird = 2f;
 
     [Header("Heat")]
     [Tooltip("Seconds of full sun (sensor not covered) to cook the egg from cold.")]
@@ -62,6 +64,11 @@ public class SunGlare : MonoBehaviour
     public string CookedText => cookedText;
     public float Heat01 { get; private set; }
     public bool IsRunning => running;
+    // True during the warning and the sun itself (the bird waits meanwhile).
+    public bool IsSunOut => running && phase != Phase.Idle;
+
+    Bird[] birds = new Bird[0];
+    float birdQuietFor = 999f;
     public string PhaseName => phase.ToString();
 
     const string HintSeenKey = "eggrun.sunHintSeen.v2";
@@ -102,9 +109,8 @@ public class SunGlare : MonoBehaviour
         sizzle = gameObject.AddComponent<AudioSource>();
         sizzle.playOnAwake = false;
         sizzle.loop = true;
-        // Empty slots use the files in Assets/UI/Resources/Audio (sun_warning, sizzle).
-        if (warningSound == null) warningSound = GameUI.GameAudio.Get("sun_warning");
-        if (sizzleLoop == null) sizzleLoop = GameUI.GameAudio.Get("sizzle");
+        // Silent by default (kept simple: only the cooked "ting" plays, from the GameManager).
+        // Drag sun_warning / sizzle from Assets/UI/Resources/Audio into the slots to hear them again.
         sizzle.clip = sizzleLoop;
     }
 
@@ -125,6 +131,8 @@ public class SunGlare : MonoBehaviour
         firstSunThisRound = true;
         CacheEgg(egg);
 
+        birds = FindObjectsByType<Bird>(FindObjectsSortMode.None);
+        birdQuietFor = 999f;
         running = GameUI.GameSettings.SunEvents;
         if (running) detector.StartCamera();
         SetPhase(Phase.Idle, RandomIn(firstSunDelay));
@@ -154,7 +162,12 @@ public class SunGlare : MonoBehaviour
         switch (phase)
         {
             case Phase.Idle:
-                if (phaseTimer >= phaseLength)
+                // One thing at a time: wait for the bird to be gone (and a short calm moment after it).
+                bool birdAround = false;
+                foreach (var b in birds) if (b != null && b.IsAround) birdAround = true;
+                birdQuietFor = birdAround ? 0f : birdQuietFor + dt;
+
+                if (phaseTimer >= phaseLength && birdQuietFor >= waitAfterBird)
                 {
                     if (timeLeft != null && timeLeft() < noSunInLastSeconds + warningTime) break;
                     StartWarning();

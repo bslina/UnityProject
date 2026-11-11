@@ -38,6 +38,20 @@ public class GameManager : MonoBehaviour
 
     public State Current { get; private set; }
 
+    // Pocket Jungle: the players' names (Players scene); "Player 1/2" when played on its own.
+    public static string Name(int player)
+    {
+        return GameUI.MiniGameBridge.IsAvailable ? GameUI.MiniGameBridge.PlayerName(player) : "Player " + player;
+    }
+
+    // Pocket Jungle Random Match: a short version with only the two solo tilt rounds
+    // (round 2 = Player 1, round 3 = Player 2), the fairest head-to-head.
+    public static int FirstRound { get { return GameUI.MiniGameBridge.InMatch ? 1 : 0; } }
+    public static int LastRound { get { return GameUI.MiniGameBridge.InMatch ? 2 : RoundCount - 1; } }
+    public static int RoundsInMatch { get { return LastRound - FirstRound + 1; } }
+    // 1-based number of the round as shown on screen (1/2 in a Random Match, 1/5 otherwise)
+    public int RoundShown { get { return Round - FirstRound + 1; } }
+
     // 0..4
     public int Round { get; private set; }
     public int RoundNumber { get { return Round + 1; } }
@@ -95,9 +109,9 @@ public class GameManager : MonoBehaviour
     {
         get
         {
-            if (IsDuoRound) return "P1 drives · P2 shoots";
-            if (IsVoiceRound) return "Player " + SoloPlayer + " solo · voice";
-            return "Player " + SoloPlayer + " solo";
+            if (IsDuoRound) return Name(1) + " drives · " + Name(2) + " shoots";
+            if (IsVoiceRound) return Name(SoloPlayer) + " solo · voice";
+            return Name(SoloPlayer) + " solo";
         }
     }
 
@@ -166,11 +180,14 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
+        // Pocket Jungle: no music during the voice rounds, so the microphone hears the player.
+        GameUI.MiniGameBridge.SetMusicPaused(IsVoiceRound && (Current == State.Intro || Current == State.Playing || Current == State.Paused));
+
         // First frame: every other script has started, show the round 1 intro
         if (!started)
         {
             started = true;
-            EnterIntro(0);
+            EnterIntro(FirstRound);
             return;
         }
 
@@ -261,7 +278,7 @@ public class GameManager : MonoBehaviour
         if (touch != null) touch.SetVoiceListening(false);   // microphone off until the next voice round
         RecordRound();
 
-        if (Round >= RoundCount - 1) EnterResults();
+        if (Round >= LastRound) EnterResults();
         else SetState(State.RoundOver);
     }
 
@@ -305,9 +322,10 @@ public class GameManager : MonoBehaviour
     {
         if (reported) return;
         reported = true;
-        string verdict = Winner == 0 ? "Draw!" : "Player " + Winner + " wins!";
+        string verdict = Winner == 0 ? "Draw!" : Name(Winner) + " wins!";
         int stars = MatchTotal >= threeStarTotal ? 3 : MatchTotal >= twoStarTotal ? 2 : 1;
-        GameUI.MiniGameBridge.Win(verdict + "  P1 " + P1Total + " - P2 " + P2Total, stars, MatchTotal, 0.2f);
+        // Win screen normally; in a Random Match it counts the round for the winner.
+        GameUI.MiniGameBridge.ReportDuel(Winner, P1Total, P2Total, verdict + "  P1 " + P1Total + " - P2 " + P2Total, stars, MatchTotal, 0.2f);
     }
 
     // Pause menu "Back to levels".
@@ -355,7 +373,7 @@ public class GameManager : MonoBehaviour
         LastRoundDriver = 0;
         LastRoundGunner = 0;
 
-        EnterIntro(0);
+        EnterIntro(FirstRound);
     }
 
     // ------------------------------------------------------------------ helpers

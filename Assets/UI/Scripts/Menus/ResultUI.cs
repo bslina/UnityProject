@@ -10,6 +10,8 @@ namespace GameUI
         [Tooltip("Ticked in the WinMenu scene, unticked in the LoseMenu scene (picks the win/lose sound).")]
         [SerializeField] bool isWinScreen = true;
 
+        [Tooltip("Headline: \"LINA WINS!\" / \"DRAW!\" (every minigame is a 2-player duel).")]
+        [SerializeField] Text titleText;
         [SerializeField] Text detailText;
         [SerializeField] Text scoreText;
         [Tooltip("Shows which minigame was just played.")]
@@ -45,7 +47,17 @@ namespace GameUI
             {
                 if (detailText != null) detailText.text = result.Detail;
 
-                if (scoreText != null)
+                if (result.IsDuel)
+                {
+                    string winner = result.Winner == 1 ? result.Player1 : result.Winner == 2 ? result.Player2 : null;
+                    if (titleText != null) titleText.text = winner == null ? "DRAW!" : winner.ToUpperInvariant() + " WINS!";
+                    if (scoreText != null)
+                    {
+                        scoreText.gameObject.SetActive(!string.IsNullOrEmpty(result.ScoreLine));
+                        scoreText.text = result.ScoreLine;
+                    }
+                }
+                else if (scoreText != null)
                 {
                     scoreText.gameObject.SetActive(result.Score > 0);
                     scoreText.text = result.NewBest ? $"Score {result.Score}  (new best!)" : $"Score {result.Score}";

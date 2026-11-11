@@ -32,12 +32,21 @@ public class GameManager : MonoBehaviour
     [SerializeField] Text debugText;
     [SerializeField] bool showDebug = true;
 
+    [Header("Music (files in Assets/UI/Resources/Audio)")]
+    [Tooltip("Played while the start panel (how to play) is shown.")]
+    [SerializeField] string startPanelMusic = "music_egg_run_intro";
+    [Tooltip("Played once START is pressed. Empty = the normal Egg Run music (music_egg_run).")]
+    [SerializeField] string gameplayMusic = "";
+    [Tooltip("Music level while playing (1 = normal). Lower = footsteps and effects are easier to hear.")]
+    [SerializeField, Range(0f, 1f)] float gameplayMusicVolume = 0.45f;
+
     [Header("Stars on win (seconds left needed)")]
     [SerializeField] float threeStarTime = 30f;
     [SerializeField] float twoStarTime = 15f;
 
     State state;
     float timeLeft;
+    float startX;
 
     void Awake()
     {
@@ -50,8 +59,11 @@ public class GameManager : MonoBehaviour
 
         if (sunGlare == null) sunGlare = GetComponent<SunGlare>();
         if (sunGlare == null) sunGlare = gameObject.AddComponent<SunGlare>();
+        if (player.GetComponent<Footsteps>() == null) player.gameObject.AddComponent<Footsteps>();
+
         sunGlare.Cooked += () =>
         {
+            GameAudio.Play("egg_cooked");   // quick sharp oven "ting!"
             egg.Freeze(true); // a cooked egg stays in the spoon
             EndRound(false, sunGlare.CookedText);
         };
@@ -61,12 +73,20 @@ public class GameManager : MonoBehaviour
     {
         state = State.Ready;
         timeLeft = timeLimit;
+        startX = player.transform.position.x;
 
         player.CanWalk = false;
         spoon.FollowTilt = false;
         egg.Freeze(true);
 
         startPanel.SetActive(true);
+        MiniGameBridge.PlayMusic(startPanelMusic);
+        if (MiniGameBridge.IsAvailable)
+        {
+            // Pocket Jungle plays Egg Run as 2 turns: the start panel's title says whose turn it is.
+            foreach (var t in startPanel.GetComponentsInChildren<Text>(true))
+                if (t.name == "Title") { t.text = MiniGameBridge.PlayerName(MiniGameBridge.TurnPlayer) + "'s turn!"; break; }
+        }
         endPanel.SetActive(false);
         walkButton.SetActive(false);
         debugText.gameObject.SetActive(ShowDebug);
@@ -83,6 +103,8 @@ public class GameManager : MonoBehaviour
         player.CanWalk = true;
 
         startPanel.SetActive(false);
+        MiniGameBridge.PlayMusic(gameplayMusic);
+        MiniGameBridge.SetMusicVolume(gameplayMusicVolume);
         walkButton.SetActive(true);
         state = State.Playing;
         sunGlare.Begin(egg, () => timeLeft);
@@ -120,6 +142,8 @@ public class GameManager : MonoBehaviour
 
         if (MiniGameBridge.IsAvailable)
         {
+            // Each player plays one turn; the shared menus compare them: any finish beats any fall,
+            // two finishes = more time left (score), two falls = who got further (score = share of the track).
             if (won)
             {
                 int stars = timeLeft >= threeStarTime ? 3 : timeLeft >= twoStarTime ? 2 : 1;
@@ -127,7 +151,9 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                MiniGameBridge.Lose(detail, 2f);
+                float track = Mathf.Max(0.01f, finishLine.position.x - startX);
+                float walked = Mathf.Clamp01((player.transform.position.x - startX) / track);
+                MiniGameBridge.Lose(detail + " (" + Mathf.RoundToInt(walked * 100f) + "% of the way)", 2f, Mathf.RoundToInt(walked * 999f));
             }
             return;
         }

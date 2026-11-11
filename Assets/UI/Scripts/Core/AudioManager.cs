@@ -22,6 +22,7 @@ namespace GameUI
         [SerializeField, Range(0f, 1f)] float musicLevel = 0.55f;
 
         bool musicPaused;
+        float musicScale = 1f;   // a minigame can turn its music down (MiniGameBridge.SetMusicVolume)
 
         void OnEnable()
         {
@@ -35,13 +36,14 @@ namespace GameUI
 
         void ApplyVolumes()
         {
-            if (musicSource != null) musicSource.volume = GameSettings.MusicVolume * musicLevel;
+            if (musicSource != null) musicSource.volume = GameSettings.MusicVolume * musicLevel * musicScale;
             if (sfxSource != null) sfxSource.volume = GameSettings.SfxVolume;
         }
 
         // Menu scenes play the menu music; each minigame plays its own.
         public void PlayMusicFor(MiniGameInfo game)
         {
+            SetMusicScale(1f);   // every scene starts at the normal music level
             AudioClip clip = game != null
                 ? (game.music != null ? game.music : GameAudio.Get("music_" + game.id))
                 : (menuMusic != null ? menuMusic : GameAudio.Get("music_menu"));
@@ -53,6 +55,27 @@ namespace GameUI
             musicSource.loop = true;
             if (clip != null) musicSource.Play();
             else musicSource.Stop();
+        }
+
+        // Switch to another track while staying in the same scene (e.g. a start screen tune, then the
+        // gameplay tune). name = a file in Assets/UI/Resources/Audio; empty = back to the scene's music.
+        public void PlayMusic(string name)
+        {
+            if (string.IsNullOrEmpty(name)) { PlayMusicFor(GameFlow.Instance != null ? GameFlow.Instance.CurrentGame : null); return; }
+            AudioClip clip = GameAudio.Get(name);
+            if (clip == null) { Debug.LogWarning("GameUI: music '" + name + "' not found in Resources/Audio."); return; }
+            musicPaused = false;
+            if (musicSource == null || (musicSource.clip == clip && musicSource.isPlaying)) return;
+            musicSource.clip = clip;
+            musicSource.loop = true;
+            musicSource.Play();
+        }
+
+        // 1 = normal, 0.5 = half as loud (on top of the player's Music volume).
+        public void SetMusicScale(float scale)
+        {
+            musicScale = Mathf.Clamp01(scale);
+            ApplyVolumes();
         }
 
         // For moments that need silence (e.g. Sound Copy while the microphone records).

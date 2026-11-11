@@ -17,6 +17,13 @@ namespace GameUI
         public int Score;
         public bool NewBest;
         public int GameIndex;
+
+        // 2-player result (every minigame is a duel): who won and both scores.
+        public bool IsDuel;
+        public int Winner;            // 1, 2, or 0 = draw
+        public int Score1, Score2;
+        public string Player1, Player2;
+        public string ScoreLine;      // e.g. "Lina  3  -  1  Sam" (empty when the detail already says it)
     }
 
     // The "big game" brain. Lives on the GameUI prefab (Assets/UI/Resources/GameUI.prefab),
@@ -26,7 +33,7 @@ namespace GameUI
     //   MainMenu, LevelSelect, WinMenu, LoseMenu  -> replace the current scene
     //   PauseMenu, SettingsMenu                   -> opened ON TOP of the current scene (additive),
     //                                                so a paused minigame keeps its state
-    public class GameFlow : MonoBehaviour
+    public partial class GameFlow : MonoBehaviour
     {
         public static GameFlow Instance { get; private set; }
 
@@ -81,6 +88,7 @@ namespace GameUI
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            CreateAudioListener();
 
             Screen.orientation = ScreenOrientation.LandscapeLeft;
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -98,9 +106,20 @@ namespace GameUI
             Instance = null;
         }
 
+        // With "Enter Play Mode Options > Reload Scene" turned off (this project), Unity doesn't fire
+        // sceneLoaded for the scene that is already open when Play is pressed: set it up here instead.
+        bool sceneSetUp;
+
+        void Start()
+        {
+            if (Instance == this && !sceneSetUp) OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
+        }
+
         void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            sceneSetUp = true;
             StartCoroutine(AddClickSounds());
+            EnsureAudioListener();
             if (mode != LoadSceneMode.Single) return; // pause / settings popups don't change the game state
 
             ResultShown = false;
@@ -128,6 +147,22 @@ namespace GameUI
                 else yield return null;
                 foreach (var button in FindObjectsByType<UnityEngine.UI.Button>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                     if (button.GetComponent<ButtonClickSound>() == null) button.gameObject.AddComponent<ButtonClickSound>();
+            }
+        }
+
+        void LateUpdate()
+        {
+            // The listener sits where the game's camera is (matters for any 3D sound).
+            if (listener == null) return;
+            Camera cam = Camera.main;
+            if (cam != null) listener.transform.SetPositionAndRotation(cam.transform.position, cam.transform.rotation);
+
+            // A minigame may create its own camera + listener later on: keep only ours.
+            listenerScanTimer -= Time.unscaledDeltaTime;
+            if (listenerScanTimer <= 0f)
+            {
+                listenerScanTimer = 1f;
+                EnsureAudioListener();
             }
         }
 
@@ -173,6 +208,7 @@ namespace GameUI
                 PlayCampaign();
                 return;
             }
+            ResetSoloTurns();   // a fresh game starts with player 1's turn
             LoadScene(game.sceneName);
         }
 
@@ -192,9 +228,9 @@ namespace GameUI
             else LoadMainMenu();
         }
 
-        public void LoadMainMenu() => LoadScene(MainMenuScene);
+        public void LoadMainMenu() { Match = null; LoadScene(MainMenuScene); }
 
-        public void LoadLevelMenu() => LoadScene(LevelSelectScene);
+        public void LoadLevelMenu() { Match = null; LoadScene(LevelSelectScene); }
 
         public void Quit()
         {
@@ -310,6 +346,13 @@ namespace GameUI
         public void ReportResult(bool won, string detail, int stars, int score, float delay)
         {
             if (ResultShown || IsLoading) return;
+            if (CurrentGame != null && !CurrentGame.twoPlayer)
+            {
+                // Solo minigame = one player's turn (2 turns, then the result).
+                if (InMatch) ReportSoloTurn(won, detail, score, delay);
+                else ReportSoloTurnFree(won, detail, stars, score, delay);
+                return;
+            }
             ResultShown = true;
             if (overlay != null) overlay.Refresh();
 
@@ -342,6 +385,26 @@ namespace GameUI
             Screen.orientation = game != null && game.orientation == GameOrientation.Portrait
                 ? ScreenOrientation.Portrait
                 : ScreenOrientation.LandscapeLeft;
+        }
+
+        // Unity plays no sound without exactly ONE AudioListener. Scenes come and go (and some have
+        // none), so GameUI keeps its own permanent listener that follows the camera, and switches the
+        // scenes' own listeners off: never zero (no "no audio listeners" warning), never two.
+        AudioListener listener;
+        float listenerScanTimer;
+
+        void CreateAudioListener()
+        {
+            var go = new GameObject("AudioListener (GameUI)");
+            go.transform.SetParent(transform, false);
+            listener = go.AddComponent<AudioListener>();
+        }
+
+        void EnsureAudioListener()
+        {
+            if (listener == null) CreateAudioListener();
+            foreach (var other in FindObjectsByType<AudioListener>(FindObjectsSortMode.None))
+                if (other != listener && other.enabled) other.enabled = false;
         }
 
         static void EnsureEventSystem()

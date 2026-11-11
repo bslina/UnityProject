@@ -8,23 +8,27 @@ using UnityEngine.Android;
 
 namespace SoundCopy.UI
 {
-    // One player's imitation: RAISE THE PHONE TO YOUR MOUTH (or tap the mic) -> 3-2-1 -> record for the
+    // One player's imitation: LIFT THE PHONE TO YOUR MOUTH (or tap the mic) -> 3-2-1 -> record for the
     // length of the video (live level meter + progress bar) -> listen back, redo once, or validate.
-    // Lowering the phone during the 3-2-1 cancels the take. In the Editor, hold R to "raise" the phone.
+    // "Lift" is measured from the way the player is holding the phone (any grip, landscape included):
+    // turning it ~30 degrees away from that grip and holding it there starts the take. Bringing it back
+    // during the 3-2-1 cancels a lifted take. The mic button always works too. Editor: hold R to "lift".
     public sealed class RecordingPanel : MonoBehaviour
     {
         private const int SampleRate = 44100;
         private const int MeterBars = 28;
 
-        [Header("Raise to record (accelerometer)")]
-        [Tooltip("Start recording when the phone is raised like a microphone.")]
+        [Header("Lift to record (accelerometer)")]
+        [Tooltip("Start recording when the phone is lifted to the mouth.")]
         [SerializeField] private bool raiseToRecord = true;
-        [Tooltip("How upright counts as 'raised' (0 = flat, 1 = straight up).")]
-        [SerializeField, Range(0.3f, 0.95f)] private float raisedLevel = 0.6f;
-        [Tooltip("Below this the phone counts as 'down' (reading the screen / on the table).")]
-        [SerializeField, Range(0.05f, 0.8f)] private float loweredLevel = 0.4f;
-        [Tooltip("The pose must hold this long (seconds) before it counts.")]
+        [Tooltip("How far (degrees) the phone must turn away from the way it's held to count as 'lifted'.")]
+        [SerializeField, Range(15f, 70f)] private float liftAngle = 30f;
+        [Tooltip("Back within this many degrees of the grip = put down again (cancels a lifted take during 3-2-1).")]
+        [SerializeField, Range(5f, 40f)] private float returnAngle = 12f;
+        [Tooltip("The lift must hold this long (seconds) before it counts.")]
         [SerializeField] private float poseHoldTime = 0.3f;
+        [Tooltip("Seconds for the game to get used to a new way of holding the phone (slow changes don't count as a lift).")]
+        [SerializeField] private float gripLearnTime = 1.5f;
 
         [SerializeField] private GameManager gameManager;
         [SerializeField] private TextMeshProUGUI titleText;
@@ -60,10 +64,13 @@ namespace SoundCopy.UI
         private float smoothLevel;
         private bool countingDown;
         private bool done;
-        private bool armed;          // the phone was down at least once since the screen opened
+        private bool armed;          // the phone was back in the hand's grip at least once since the screen opened
         private float raisedSince = -1f;
         private float loweredSince = -1f;
         private bool cancelRequested;
+        private Vector3 grip;        // how the player holds the phone while reading the screen (gravity direction)
+        private bool hasGrip;
+        private bool liftedTake;     // this take was started by lifting the phone (not by the button)
 
         bool RaiseAvailable => raiseToRecord && (PhoneMotion.HasAccelerometer || Application.isEditor);
 
@@ -71,15 +78,27 @@ namespace SoundCopy.UI
 
         private void OnEnable() => PhoneMotion.Warm();
 
-        // Watches the phone's pose: raising it starts the take, lowering it during 3-2-1 cancels it.
+        // Watches the phone: lifting it away from the grip starts the take; bringing it back during the
+        // 3-2-1 cancels a LIFTED take (a take started with the button is never cancelled by the phone's angle).
         private void Update()
         {
             if (!RaiseAvailable || done) return;
             bool keyRaise = UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.rKey.isPressed;
-            float upright = PhoneMotion.HasAccelerometer ? PhoneMotion.Upright : 0f;
-            bool raised = keyRaise || (PhoneMotion.HasAccelerometer && upright >= raisedLevel);
-            bool lowered = !keyRaise && (!PhoneMotion.HasAccelerometer || upright <= loweredLevel);
             float now = Time.unscaledTime;
+
+            float angle = 0f;
+            if (PhoneMotion.HasAccelerometer)
+            {
+                Vector3 g = PhoneMotion.Gravity;
+                if (!hasGrip) { grip = g; hasGrip = true; }
+                angle = Vector3.Angle(g, grip);
+                // Slowly follow the way the phone is held (shifting position, sitting back...), but not
+                // during a lift or a take: only a quick, deliberate turn counts.
+                if (!busy && angle < liftAngle * 0.5f)
+                    grip = Vector3.Slerp(grip, g, 1f - Mathf.Exp(-Time.unscaledDeltaTime / Mathf.Max(0.1f, gripLearnTime)));
+            }
+            bool raised = keyRaise || (PhoneMotion.HasAccelerometer && angle >= liftAngle);
+            bool lowered = !keyRaise && (!PhoneMotion.HasAccelerometer || angle <= returnAngle);
 
             raisedSince = raised ? (raisedSince < 0f ? now : raisedSince) : -1f;
             loweredSince = lowered ? (loweredSince < 0f ? now : loweredSince) : -1f;
@@ -87,17 +106,17 @@ namespace SoundCopy.UI
             if (!busy)
             {
                 if (lowered) armed = true;
-                if (armed && raisedSince >= 0f && now - raisedSince >= poseHoldTime) BeginRecording();
+                if (armed && raisedSince >= 0f && now - raisedSince >= poseHoldTime) BeginRecording(true);
             }
-            else if (countingDown && loweredSince >= 0f && now - loweredSince >= poseHoldTime + 0.1f)
+            else if (countingDown && liftedTake && loweredSince >= 0f && now - loweredSince >= poseHoldTime + 0.1f)
             {
-                cancelRequested = true; // lowered during 3-2-1: cancel this take
+                cancelRequested = true; // put back during 3-2-1: cancel this lifted take
             }
         }
 
         private void Awake()
         {
-            micButton?.onClick.AddListener(BeginRecording);
+            micButton?.onClick.AddListener(() => BeginRecording(false));
             listenButton?.onClick.AddListener(Listen);
             redoButton?.onClick.AddListener(Redo);
             validateButton?.onClick.AddListener(Validate);
@@ -119,8 +138,10 @@ namespace SoundCopy.UI
             playerIndex = index;
             microphoneClip = null;
             busy = recording = redoUsed = done = countingDown = cancelRequested = false;
-            // Already holding it up when the screen opens? It must come down first, so it doesn't start by itself.
-            armed = !PhoneMotion.HasAccelerometer || PhoneMotion.Upright <= loweredLevel;
+            // The grip is learned from how the phone is held right now, so it never starts by itself.
+            hasGrip = false;
+            armed = true;
+            liftedTake = false;
             recordingDuration = gameManager != null ? Mathf.Max(1f, gameManager.CurrentChallengeDuration) : 4f;
             Color color = MobileUI.PlayerColor(index);
 
@@ -144,9 +165,11 @@ namespace SoundCopy.UI
             if (timerText != null) timerText.text = recordingDuration.ToString("0.0") + " s";
             if (statusText != null)
                 statusText.text = RaiseAvailable
-                    ? "Raise the phone to your mouth to start\n(or tap the mic)"
+                    ? "Lift the phone to your mouth to start\n(or tap the mic)"
                     : "Tap the mic when you're ready";
-            if (micButton != null) micButton.interactable = true;
+            if (micButton != null) micButton.interactable = true;   // the mic button always works
+            hasGrip = false;
+            liftedTake = false;
             if (afterRow != null) afterRow.SetActive(false);
             if (validateButton != null) validateButton.gameObject.SetActive(false);
             if (backButton != null) backButton.gameObject.SetActive(true);
@@ -169,9 +192,11 @@ namespace SoundCopy.UI
 
         // ---------------------------------------------------------------- recording
 
-        private void BeginRecording()
+        private void BeginRecording(bool lifted)
         {
-            if (!busy) StartCoroutine(RecordRoutine());
+            if (busy) return;
+            liftedTake = lifted;
+            StartCoroutine(RecordRoutine());
         }
 
         private IEnumerator RecordRoutine()
@@ -218,7 +243,7 @@ namespace SoundCopy.UI
                         busy = false;
                         armed = true;
                         ShowReady();
-                        statusText.text = "Lowered too early: raise the phone again";
+                        statusText.text = "Put down too early: lift the phone again (or tap the mic)";
                         yield break;
                     }
                     t += Time.unscaledDeltaTime;
@@ -364,8 +389,8 @@ namespace SoundCopy.UI
             if (playback != null) playback.Stop();
             ResetMeter();
             SetProgress(0f);
-            armed = !PhoneMotion.HasAccelerometer || PhoneMotion.Upright <= loweredLevel;
-            ShowReady(); // raise the phone again (or tap the mic) for the new take
+            armed = true;
+            ShowReady(); // lift the phone again (or tap the mic) for the new take; the grip is learned again
         }
 
         void Validate()

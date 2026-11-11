@@ -72,13 +72,13 @@ namespace SoundCopy.UI
             {
                 case Stage.WaitFlat:
                     Set("PUT THE PHONE FLAT", "Lay it on the table between you:\nP1 on the bottom side, P2 on the top side.");
-                    SetMain(HasGyro ? "SPIN FOR ME" : "SPIN FOR ME  >");
+                    SetMain(HasGyro ? "LET THE PHONE CHOOSE" : "LET THE PHONE CHOOSE  >");
                     break;
                 case Stage.Ready:
                     Set(HasGyro ? "SPIN IT!" : "NO GYROSCOPE", HasGyro
-                        ? "Spin the phone like a bottle.\nThe faster it spins, the better: a fast spin = x2 round!"
-                        : "This phone can't feel spins.\nTap \"Spin for me\" for a random spin.");
-                    SetMain("SPIN FOR ME");
+                        ? "Spin the phone like a bottle to pick who starts\n(or let the phone choose). A fast spin = x2 round!"
+                        : "This phone can't feel spins.\nTap \"Let the phone choose\" to pick who starts.");
+                    SetMain("LET THE PHONE CHOOSE");
                     break;
                 case Stage.Spinning:
                     Set("SPINNING…", "");
@@ -233,7 +233,7 @@ namespace SoundCopy.UI
             MobileUI.Text(x2, "Text", "x2 ROUND  >", 30f, SoundCopyTheme.PaleBonus, TextAlignmentOptions.MidlineRight);
 
             var main = MobileUI.BottomRight(page, "MainAction");
-            mainButton = MobileUI.BigButton(main, "MainButton", "SPIN FOR ME", SoundCopyTheme.Lime, SoundCopyTheme.Ink, out mainLabel);
+            mainButton = MobileUI.BigButton(main, "MainButton", "LET THE PHONE CHOOSE", SoundCopyTheme.Lime, SoundCopyTheme.Ink, out mainLabel);
         }
 
         static RectTransform MobileUi_Row(Transform parent, string name, float top, float height) => MobileUI.Row(parent, name, top, height, 0f);

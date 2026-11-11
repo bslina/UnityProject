@@ -130,7 +130,8 @@ public class PhotoChallengeGame : MonoBehaviour
 
     private int currentPlayer;
     private int turnsPlayed;
-    private const int TotalTurns = 6;
+    // 3 turns each; in a Random Match a short version: 1 turn each.
+    private static int TotalTurns => MiniGameBridge.InMatch ? 2 : 6;
 
     // Shared shuffled deck: both players receive random missions without repeats
     // until every configured mission has been used once.
@@ -1070,6 +1071,12 @@ public class PhotoChallengeGame : MonoBehaviour
     private void OpenSetup()
     {
         SetOnlyPanel(setupPanel);
+        if (MiniGameBridge.IsAvailable)
+        {
+            // Pocket Jungle: the 2 players' names (Players scene).
+            if (player1Input != null) player1Input.text = MiniGameBridge.PlayerName(1);
+            if (player2Input != null) player2Input.text = MiniGameBridge.PlayerName(2);
+        }
         if (setupStatusText != null) setupStatusText.text = string.Empty;
     }
 
@@ -1106,7 +1113,8 @@ public class PhotoChallengeGame : MonoBehaviour
             ? $"Égalité {scores[0]} – {scores[1]}"
             : $"{players[winner]} gagne {scores[winner]} – {scores[1 - winner]}";
         int stars = Mathf.Clamp(best, 1, 3);
-        MiniGameBridge.Win(detail, stars, best, 0.2f);
+        // Win screen normally; in a Random Match it counts the round for the winner.
+        MiniGameBridge.ReportDuel(winner < 0 ? 0 : winner + 1, scores[0], scores[1], detail, stars, best, 0.2f);
     }
 
     // ================================================================ game flow

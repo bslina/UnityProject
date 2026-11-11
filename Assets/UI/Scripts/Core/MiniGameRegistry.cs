@@ -26,6 +26,13 @@ namespace GameUI
         [Tooltip("Hide the shared pause button (for minigames that have their own pause menu).")]
         public bool hidePauseButton;
 
+        [Header("Random Match")]
+        [Tooltip("Can be drawn in a Random Match (2 players, 3 random games).")]
+        public bool inRandomMatch = true;
+        [Tooltip("Ticked: both players play in the same game and it reports the winner (MiniGameBridge.ReportDuel). " +
+                 "Unticked (solo game, e.g. Egg Run): in a Random Match each player plays one turn and the best score wins.")]
+        public bool twoPlayer = true;
+
         [Header("Win / Lose screen character (optional)")]
         [Tooltip("Animated character shown on the Win and Lose screens after this minigame.")]
         public GameObject resultCharacter;

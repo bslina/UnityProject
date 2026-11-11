@@ -180,7 +180,7 @@ public class HUD : MonoBehaviour
         Text(new Rect(W * 0.02f, H * 0.02f, W * 0.3f, H * 0.1f),
              Mathf.RoundToInt(car.Speed * 3.6f) + " km/h", 0.05f, TextAnchor.UpperLeft, Color.white);
         Text(new Rect(W * 0.02f, H * 0.088f, W * 0.3f, H * 0.06f),
-             "Round " + game.RoundNumber + "/" + GameManager.RoundCount + "  ·  " + game.RoundLabel,
+             "Round " + game.RoundShown + "/" + GameManager.RoundsInMatch + "  ·  " + game.RoundLabel,
              0.03f, TextAnchor.UpperLeft, Soft);
 
         // Score + kills (right), shifted left to leave room for the pause button
@@ -281,18 +281,18 @@ public class HUD : MonoBehaviour
         Dim(W, H, white, 0.72f);
 
         Text(new Rect(0f, H * 0.07f, W, H * 0.16f),
-             "ROUND " + game.RoundNumber + " / " + GameManager.RoundCount, 0.12f, TextAnchor.MiddleCenter, Color.white);
+             "ROUND " + game.RoundShown + " / " + GameManager.RoundsInMatch, 0.12f, TextAnchor.MiddleCenter, Color.white);
 
         if (game.IsDuoRound)
         {
-            Text(new Rect(0f, H * 0.29f, W, H * 0.1f), "PLAYER 1 DRIVES", 0.07f, TextAnchor.MiddleCenter, Gold);
+            Text(new Rect(0f, H * 0.29f, W, H * 0.1f), GameManager.Name(1).ToUpperInvariant() + " DRIVES", 0.07f, TextAnchor.MiddleCenter, Gold);
             Text(new Rect(0f, H * 0.38f, W, H * 0.08f), "Wheel and pedals on the right", 0.042f, TextAnchor.MiddleCenter, Soft);
-            Text(new Rect(0f, H * 0.50f, W, H * 0.1f), "PLAYER 2 SHOOTS", 0.07f, TextAnchor.MiddleCenter, Gold);
+            Text(new Rect(0f, H * 0.50f, W, H * 0.1f), GameManager.Name(2).ToUpperInvariant() + " SHOOTS", 0.07f, TextAnchor.MiddleCenter, Gold);
             Text(new Rect(0f, H * 0.59f, W, H * 0.08f), "Stick, FIRE and BOMB on the left", 0.042f, TextAnchor.MiddleCenter, Soft);
         }
         else if (game.IsVoiceRound)
         {
-            Text(new Rect(0f, H * 0.24f, W, H * 0.11f), "PLAYER " + game.SoloPlayer + " PLAYS ALONE  -  VOICE ROUND", 0.07f, TextAnchor.MiddleCenter, Gold);
+            Text(new Rect(0f, H * 0.24f, W, H * 0.11f), GameManager.Name(game.SoloPlayer).ToUpperInvariant() + " PLAYS ALONE  -  VOICE ROUND", 0.07f, TextAnchor.MiddleCenter, Gold);
             Text(new Rect(0f, H * 0.35f, W, H * 0.07f), "No buttons: the gas is automatic. Tilt to steer and aim.", 0.04f, TextAnchor.MiddleCenter, Color.white);
             Text(new Rect(0f, H * 0.44f, W, H * 0.07f), "Say  BRAKE  -  once = a little, many times = a lot", 0.04f, TextAnchor.MiddleCenter, Color.white);
             Text(new Rect(0f, H * 0.52f, W, H * 0.07f), "Say  SHOOT  -  one word = one shot", 0.04f, TextAnchor.MiddleCenter, Color.white);
@@ -301,7 +301,7 @@ public class HUD : MonoBehaviour
         }
         else
         {
-            Text(new Rect(0f, H * 0.29f, W, H * 0.11f), "PLAYER " + game.SoloPlayer + " PLAYS ALONE", 0.08f, TextAnchor.MiddleCenter, Gold);
+            Text(new Rect(0f, H * 0.29f, W, H * 0.11f), GameManager.Name(game.SoloPlayer).ToUpperInvariant() + " PLAYS ALONE", 0.08f, TextAnchor.MiddleCenter, Gold);
             Text(new Rect(0f, H * 0.40f, W, H * 0.08f), "Tilt left / right to STEER", 0.05f, TextAnchor.MiddleCenter, Color.white);
             Text(new Rect(0f, H * 0.48f, W, H * 0.08f), "Top edge away from you = aim BEHIND  ·  back to level = aim AHEAD", 0.038f, TextAnchor.MiddleCenter, Color.white);
             Text(new Rect(0f, H * 0.57f, W, H * 0.07f), "Gas and brake on the right  ·  FIRE and BOMB on the left", 0.036f, TextAnchor.MiddleCenter, Soft);
@@ -329,18 +329,18 @@ public class HUD : MonoBehaviour
     {
         Dim(W, H, white, 0.65f);
 
-        Text(new Rect(0f, H * 0.10f, W, H * 0.16f), "ROUND " + game.RoundNumber + " OVER", 0.11f, TextAnchor.MiddleCenter, Color.white);
+        Text(new Rect(0f, H * 0.10f, W, H * 0.16f), "ROUND " + game.RoundShown + " OVER", 0.11f, TextAnchor.MiddleCenter, Color.white);
         Text(new Rect(0f, H * 0.30f, W, H * 0.1f), "Round score: " + game.LastRoundScore, 0.065f, TextAnchor.MiddleCenter, Color.white);
 
         if (game.IsDuoRound)
         {
-            Text(new Rect(0f, H * 0.43f, W, H * 0.08f), "Player 1 (driving): +" + game.LastRoundDriver, 0.048f, TextAnchor.MiddleCenter, Gold);
-            Text(new Rect(0f, H * 0.51f, W, H * 0.08f), "Player 2 (shooting): +" + game.LastRoundGunner, 0.048f, TextAnchor.MiddleCenter, Gold);
+            Text(new Rect(0f, H * 0.43f, W, H * 0.08f), GameManager.Name(1) + " (driving): +" + game.LastRoundDriver, 0.048f, TextAnchor.MiddleCenter, Gold);
+            Text(new Rect(0f, H * 0.51f, W, H * 0.08f), GameManager.Name(2) + " (shooting): +" + game.LastRoundGunner, 0.048f, TextAnchor.MiddleCenter, Gold);
         }
 
         int nextRound = game.Round + 1;
         Text(new Rect(0f, H * 0.65f, W, H * 0.07f),
-             "Next: Round " + (nextRound + 1) + " of " + GameManager.RoundCount + "  ·  Player " + GameManager.SoloPlayerOf(nextRound)
+             "Next: Round " + (nextRound - GameManager.FirstRound + 1) + " of " + GameManager.RoundsInMatch + "  ·  " + GameManager.Name(GameManager.SoloPlayerOf(nextRound))
              + " plays alone" + (GameManager.IsVoiceRoundIndex(nextRound) ? " (voice)" : ""),
              0.04f, TextAnchor.MiddleCenter, Soft);
 
@@ -358,16 +358,16 @@ public class HUD : MonoBehaviour
         var left = new Rect(W * 0.5f - gap * 0.5f - pw, y, pw, ph);
         var rightR = new Rect(W * 0.5f + gap * 0.5f, y, pw, ph);
 
-        DrawPanel(left, "PLAYER 1", game.P1Total,
+        DrawPanel(left, GameManager.Name(1).ToUpperInvariant(), game.P1Total,
                   "Round 1 driving: " + game.Round1Driver, "Round 2 solo: " + game.Round2Score,
                   "Round 4 voice: " + game.Round4Score,
                   game.Winner == 1, white);
-        DrawPanel(rightR, "PLAYER 2", game.P2Total,
+        DrawPanel(rightR, GameManager.Name(2).ToUpperInvariant(), game.P2Total,
                   "Round 1 shooting: " + game.Round1Gunner, "Round 3 solo: " + game.Round3Score,
                   "Round 5 voice: " + game.Round5Score,
                   game.Winner == 2, white);
 
-        string verdict = game.Winner == 0 ? "Draw!" : "Player " + game.Winner + " wins!";
+        string verdict = game.Winner == 0 ? "Draw!" : GameManager.Name(game.Winner) + " wins!";
         Text(new Rect(0f, H * 0.60f, W, H * 0.12f), verdict, 0.09f, TextAnchor.MiddleCenter, Gold);
 
         Text(new Rect(0f, H * 0.73f, W, H * 0.06f),

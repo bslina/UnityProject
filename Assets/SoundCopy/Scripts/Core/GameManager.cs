@@ -139,6 +139,12 @@ namespace SoundCopy
 
         public void OnPlayButton()
         {
+            if (MiniGameBridge.IsAvailable)
+            {
+                // Pocket Jungle: the 2 players' names (Players scene).
+                player1Name = MiniGameBridge.PlayerName(1);
+                player2Name = MiniGameBridge.PlayerName(2);
+            }
             setupPanel.Open(Player1Name, Player2Name, category);
             Show(GameState.Setup);
         }
@@ -166,7 +172,8 @@ namespace SoundCopy
 
         private void StartMatch()
         {
-            roundCount = Mathf.Max(1, roundsPerMatch);
+            // Random Match: a short version (1 round) so the 3-game match stays quick.
+            roundCount = MiniGameBridge.InMatch ? 1 : Mathf.Max(1, roundsPerMatch);
             currentRound = 1;
             player1Points = player2Points = 0;
             history.Clear();
@@ -328,7 +335,8 @@ namespace SoundCopy
                 : $"{PlayerName(winner)} wins {Points(winner)} – {Points(3 - winner)}";
             float accuracy = winner == 0 ? Mathf.Max(AverageAccuracy(1), AverageAccuracy(2)) : AverageAccuracy(winner);
             int stars = accuracy >= 70f ? 3 : accuracy >= 45f ? 2 : 1;
-            MiniGameBridge.Win(detail, stars, Mathf.RoundToInt(accuracy), 0.2f);
+            // Win screen normally; in a Random Match it counts the round for the winner.
+            MiniGameBridge.ReportDuel(winner, player1Points, player2Points, detail, stars, Mathf.RoundToInt(accuracy), 0.2f);
         }
 
         // ---------------------------------------------------------------- pause

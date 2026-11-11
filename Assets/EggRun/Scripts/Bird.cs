@@ -24,6 +24,8 @@ public class Bird : MonoBehaviour
     [Tooltip("The bird comes in when the player passes each of these X positions.")]
     [SerializeField] float[] landAtX = { 12f, 28f, 44f };
     [SerializeField] float flightTime = 1.2f;
+    [Tooltip("One thing at a time: if the sun is out, the bird waits until it has been gone this many seconds.")]
+    [SerializeField] float waitAfterSun = 2f;
 
     [Header("On the spoon")]
     [Tooltip("Where the bird sits, relative to the spoon. X is mirrored for the left rim.")]
@@ -46,10 +48,16 @@ public class Bird : MonoBehaviour
     float weight;
     Vector3 flyFrom;
     Vector3 baseScale;
+    SunGlare sun;
+    float sunQuietFor = 999f;
+
+    // True from the moment it starts flying in until it has flown away (the sun waits meanwhile).
+    public bool IsAround => state != State.Away;
 
     void Start()
     {
         baseScale = transform.localScale;
+        sun = FindAnyObjectByType<SunGlare>();
         if (ShakeDetector.Instance != null) ShakeDetector.Instance.Shaken += OnShaken;
         Show(false);
     }
@@ -66,7 +74,10 @@ public class Bird : MonoBehaviour
         switch (state)
         {
             case State.Away:
-                if (walker.CanWalk && nextLanding < landAtX.Length && walker.transform.position.x >= landAtX[nextLanding])
+                // One thing at a time: wait for the sun to be gone (and a short calm moment after it).
+                sunQuietFor = sun != null && sun.IsSunOut ? 0f : sunQuietFor + Time.deltaTime;
+                if (walker.CanWalk && nextLanding < landAtX.Length && walker.transform.position.x >= landAtX[nextLanding]
+                    && sunQuietFor >= waitAfterSun)
                 {
                     nextLanding++;
                     FlyIn();
@@ -115,7 +126,6 @@ public class Bird : MonoBehaviour
         timer = 0f;
         state = State.FlyingIn;
         Show(true);
-        GameUI.GameAudio.Play("bird_flap", 0.7f);
     }
 
     void Land()
@@ -126,7 +136,7 @@ public class Bird : MonoBehaviour
         buzzTimer = 1f;
         if (hintText != null) hintText.gameObject.SetActive(true);
         Haptics.Pulse(150, 255);
-        GameUI.GameAudio.Play("bird_chirp");
+        GameUI.GameAudio.Play("bird_land");
     }
 
     void Pecking()
@@ -153,7 +163,7 @@ public class Bird : MonoBehaviour
         if (state == State.Perched || state == State.FlyingIn)
         {
             Haptics.Pulse(80, 200);
-            GameUI.GameAudio.Play("bird_flap");
+            GameUI.GameAudio.Play("shoo");        // the player shooing
             if (PlayerAnimator.Instance != null) PlayerAnimator.Instance.Shoo();
             FlyOff();
         }
@@ -161,6 +171,7 @@ public class Bird : MonoBehaviour
 
     void FlyOff()
     {
+        GameUI.GameAudio.Play("bird_land");      // the bird leaves: same "tweet-tweet" as when it arrives
         flyFrom = transform.position;
         timer = 0f;
         state = State.FlyingOff;
@@ -175,7 +186,15 @@ public class Bird : MonoBehaviour
 
     Vector3 PerchPoint()
     {
-        return spoon.transform.TransformPoint(new Vector3(perchOffset.x * side, perchOffset.y, perchOffset.z));
+        // perchOffset is for the original spoon; a SpoonShape (smaller bowl) moves the rim.
+        Vector3 o = perchOffset;
+        var shape = spoon.GetComponent<SpoonShape>();
+        if (shape != null)
+        {
+            o.x += shape.RimX - 0.258f;
+            o.y += shape.RimY - 0.081f;
+        }
+        return spoon.transform.TransformPoint(new Vector3(o.x * side, o.y, o.z));
     }
 
     static Vector3 Arc(Vector3 from, Vector3 to, float t)

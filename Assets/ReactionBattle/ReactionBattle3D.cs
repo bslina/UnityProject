@@ -149,12 +149,18 @@ public class ReactionBattle3D : MonoBehaviour
             new GameObject("ReactionBattle3D").AddComponent<ReactionBattle3D>();
     }
 
+    // Pocket Jungle: the players' names (Players scene); "PLAYER 1/2" when played on its own.
+    static string PName(int p) => GameUI.MiniGameBridge.IsAvailable
+        ? GameUI.MiniGameBridge.PlayerName(p).ToUpperInvariant() : "PLAYER " + p;
+
     // Pocket Jungle: the match is over, show the shared Win screen (after a moment to see the result).
     void ReportMatch(int winner)
     {
         if (!GameUI.MiniGameBridge.IsAvailable) return;
         int best = Mathf.Max(score1, score2), other = Mathf.Min(score1, score2);
-        GameUI.MiniGameBridge.Win("Player " + winner + " wins " + best + " - " + other + "!", 3, best, 2.5f);
+        // Win screen normally; in a Random Match it counts the round for the winner.
+        GameUI.MiniGameBridge.ReportDuel(winner, score1, score2,
+            GameUI.MiniGameBridge.PlayerName(winner) + " wins " + best + " - " + other + "!", 3, best, 2.5f);
     }
 
     void Awake()
@@ -172,6 +178,8 @@ public class ReactionBattle3D : MonoBehaviour
         BuildMenu();
         BuildBonusArena();
         ShowMenu();
+        // Pocket Jungle Random Match: a short version, first to 3, no menu.
+        if (GameUI.MiniGameBridge.InMatch) SelectTarget(3);
     }
 
     // =====================================================
@@ -518,6 +526,9 @@ public class ReactionBattle3D : MonoBehaviour
     // =====================================================
     void Update()
     {
+        // Pocket Jungle: no music while players wait for the signal (it can be a sound only).
+        GameUI.MiniGameBridge.SetMusicPaused(state == State.Waiting || state == State.Go);
+
         CollectPointerDowns();
         foreach (var pos in pointerDowns)
         {
@@ -777,12 +788,12 @@ public class ReactionBattle3D : MonoBehaviour
         if (state == State.Waiting)
         {
             if (roundRoutine != null) StopCoroutine(roundRoutine);
-            EndRound(other, "foul", "PLAYER " + player + "\nJUMPED THE GUN!", "Point to Player " + other + "\nTap the lamp");
+            EndRound(other, "foul", PName(player) + "\nJUMPED THE GUN!", "Point to " + PName(other) + "\nTap the lamp");
         }
         else if (state == State.Go)
         {
             int ms = Mathf.RoundToInt((Time.unscaledTime - goTime) * 1000f);
-            EndRound(player, "idle", "PLAYER " + player + "\nWINS THE ROUND!", ms + " ms (" + SignalName() + ")\nTap the lamp");
+            EndRound(player, "idle", PName(player) + "\nWINS THE ROUND!", ms + " ms (" + SignalName() + ")\nTap the lamp");
         }
     }
 
@@ -797,7 +808,7 @@ public class ReactionBattle3D : MonoBehaviour
         {
             matchOver = true;
             SetVisual("over");
-            SetTexts("PLAYER " + winner + "\nWINS THE MATCH!", "Tap the lamp\nfor a new game");
+            SetTexts(PName(winner) + "\nWINS THE MATCH!", "Tap the lamp\nfor a new game");
             ReportMatch(winner);
             return;
         }
@@ -842,7 +853,7 @@ public class ReactionBattle3D : MonoBehaviour
         SetVisual("bonus");
         Play(bonusStartClip);
         Vibrate();
-        SetBonusTexts("BONUS TIME!\nPLAYER " + player, "Grab the phone!");
+        SetBonusTexts("BONUS TIME!\n" + PName(player), "Grab the phone!");
         yield return new WaitForSeconds(2.2f);
 
         for (int c = 3; c >= 1; c--)
@@ -887,12 +898,12 @@ public class ReactionBattle3D : MonoBehaviour
                 matchOver = true;
                 state = State.RoundOver;
                 SetVisual("over");
-                SetTexts("PLAYER " + player + "\nWINS THE MATCH!", "Tap the lamp\nfor a new game");
+                SetTexts(PName(player) + "\nWINS THE MATCH!", "Tap the lamp\nfor a new game");
                 ReportMatch(player);
                 yield break;
             }
             SetVisual("idle");
-            SetTexts("BONUS WON!\n+" + BonusPoints + " PLAYER " + player, "Tap the lamp");
+            SetTexts("BONUS WON!\n+" + BonusPoints + " " + PName(player), "Tap the lamp");
         }
         else
         {
