@@ -1070,14 +1070,55 @@ public class PhotoChallengeGame : MonoBehaviour
 
     private void OpenSetup()
     {
-        SetOnlyPanel(setupPanel);
         if (MiniGameBridge.IsAvailable)
         {
-            // Pocket Jungle: the 2 players' names (Players scene).
+            // Pocket Jungle: the 2 players are already known (Players scene): no names step,
+            // the game starts right away (after the AI model has finished loading, if it hasn't yet).
             if (player1Input != null) player1Input.text = MiniGameBridge.PlayerName(1);
             if (player2Input != null) player2Input.text = MiniGameBridge.PlayerName(2);
+            StartCoroutine(StartWithSharedPlayers());
+            return;
         }
+        SetOnlyPanel(setupPanel);
         if (setupStatusText != null) setupStatusText.text = string.Empty;
+    }
+
+    private System.Collections.IEnumerator StartWithSharedPlayers()
+    {
+        if (!similarityReady && similarityLoading)
+        {
+            // Still loading: a short "loading" screen (the setup screen without its name fields).
+            SetOnlyPanel(setupPanel);
+            HideNameFields();
+            float giveUp = Time.realtimeSinceStartup + 30f;
+            while (!similarityReady && similarityLoading && Time.realtimeSinceStartup < giveUp)
+            {
+                if (setupStatusText != null) setupStatusText.text = "Le modèle IA se charge, patiente un instant.";
+                yield return null;
+            }
+        }
+        StartGame();
+        if (!gameStarted)   // AI not available / no missions: stay on that screen, which shows the reason
+        {
+            SetOnlyPanel(setupPanel);
+            HideNameFields();
+        }
+    }
+
+    // The setup screen's name cards, labels and fields (not used inside Pocket Jungle).
+    private void HideNameFields()
+    {
+        if (setupPanel == null) return;
+        if (player1Input != null) player1Input.gameObject.SetActive(false);
+        if (player2Input != null) player2Input.gameObject.SetActive(false);
+        foreach (Transform child in setupPanel.transform)
+            if (child.name.StartsWith("PlayerOne") || child.name.StartsWith("PlayerTwo")) child.gameObject.SetActive(false);
+        foreach (var text in setupPanel.GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (text == setupStatusText) continue;
+            if (text.text.StartsWith("JOUEUR") || text.text.StartsWith("CHOISISSEZ")) text.gameObject.SetActive(false);
+            else if (text.text == "LES JOUEURS") text.text = "PRÊTS ?";
+        }
     }
 
     private void ShowHome() => SetOnlyPanel(homePanel);

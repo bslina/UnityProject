@@ -44,7 +44,7 @@ namespace GameUI
             var flow = GameFlow.Instance;
             if (flow == null) return;
             var game = flow.Registry != null ? flow.Registry.Get(flow.LastGameIndex) : null;
-            string p1 = flow.PlayerName(1), p2 = flow.PlayerName(2);
+            string p1 = MiniGameBridge.PlayerName(1), p2 = MiniGameBridge.PlayerName(2);   // Random Match names too
             string line = "Pass the phone to " + p2 + "!\nBeat " + p1 + "'s score.";
 
             if (titleText != null) titleText.text = (game != null ? game.displayName + ": " : "") + p1 + "'s turn is over!";

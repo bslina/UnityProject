@@ -118,8 +118,8 @@ namespace GameUI
 
             if (turn == 0)
             {
-                Match.SoloTurn = 1;                 // the Random Match screen asks to pass the phone
-                ShowMatchScreenAfter(delay);
+                Match.SoloTurn = 1;
+                ShowSceneAfter(delay, turnHandoverScene);   // same "pass the phone" screen as outside a match
                 return;
             }
 
